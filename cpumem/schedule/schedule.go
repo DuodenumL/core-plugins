@@ -2,8 +2,9 @@ package schedule
 
 import (
 	"container/heap"
-	"github.com/projecteru2/core-plugins/cpumem/types"
 	"sort"
+
+	"github.com/projecteru2/core-plugins/cpumem/types"
 )
 
 type cpuCore struct {
@@ -140,7 +141,7 @@ func doGetCPUPlans(originCPUMap, availableCPUMap types.CPUMap, availableMemory i
 	h := newHost(availableCPUMap, shareBase, maxFragmentCores)
 
 	// affinity
-	if originCPUMap != nil {
+	if len(originCPUMap) > 0 {
 		originH := newHost(originCPUMap, shareBase, maxFragmentCores)
 		reorderByAffinity(originH, h)
 	}

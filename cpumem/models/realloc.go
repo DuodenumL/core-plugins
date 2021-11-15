@@ -2,13 +2,19 @@ package models
 
 import (
 	"context"
+
+	"github.com/sirupsen/logrus"
+
 	"github.com/projecteru2/core-plugins/cpumem/schedule"
 	"github.com/projecteru2/core-plugins/cpumem/types"
-	"github.com/sirupsen/logrus"
 )
 
 // Realloc .
-func (c *CPUMem) Realloc(ctx context.Context, node string, originResourceArgs *types.WorkloadResourceArgs, resourceOpts *types.WorkloadResourceOpts) (*types.EngineArgs, *types.NodeResourceArgs, *types.WorkloadResourceArgs, error) {
+func (c *CPUMem) Realloc(ctx context.Context, node string, originResourceArgs *types.WorkloadResourceArgs, resourceOpts *types.WorkloadResourceOpts) (*types.EngineArgs, *types.WorkloadResourceArgs, *types.WorkloadResourceArgs, error) {
+	if resourceOpts.KeepCPUBind {
+		resourceOpts.CPUBind = len(originResourceArgs.CPUMap) > 0
+	}
+
 	resourceInfo, err := c.doGetNodeResourceInfo(ctx, node)
 	if err != nil {
 		logrus.Errorf("[Realloc] failed to get resource info of node %v, err: %v", node, err)
@@ -67,15 +73,8 @@ func (c *CPUMem) Realloc(ctx context.Context, node string, originResourceArgs *t
 		NUMANode:      numaNodeID,
 	}
 
-	deltaNodeResourceArgs := &types.NodeResourceArgs{
-		CPU:        resourceOpts.CPURequest,
-		CPUMap:     cpuMap,
-		Memory:     resourceOpts.MemRequest,
-		NUMAMemory: numaMemory,
-	}
-	if deltaNodeResourceArgs.CPUMap != nil {
-		deltaNodeResourceArgs.CPUMap.Sub(originResourceArgs.CPUMap)
-	}
+	deltaWorkloadResourceArgs := finalWorkloadResourceArgs.DeepCopy()
+	deltaWorkloadResourceArgs.Sub(originResourceArgs)
 
-	return engineArgs, deltaNodeResourceArgs, finalWorkloadResourceArgs, nil
+	return engineArgs, deltaWorkloadResourceArgs, finalWorkloadResourceArgs, nil
 }

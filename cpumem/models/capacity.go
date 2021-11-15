@@ -2,27 +2,36 @@ package models
 
 import (
 	"context"
+
+	"github.com/sirupsen/logrus"
+
 	"github.com/projecteru2/core-plugins/cpumem/schedule"
 	"github.com/projecteru2/core-plugins/cpumem/types"
-	"github.com/sirupsen/logrus"
 )
 
-// SelectAvailableNodes .
-func (c *CPUMem) SelectAvailableNodes(ctx context.Context, nodes []string, opts *types.WorkloadResourceOpts) (map[string]*types.NodeCapacityInfo, error) {
+// GetNodesCapacity .
+func (c *CPUMem) GetNodesCapacity(ctx context.Context, nodes []string, opts *types.WorkloadResourceOpts) (map[string]*types.NodeCapacityInfo, int, error) {
+	if err := opts.Validate(); err != nil {
+		logrus.Errorf("[GetNodesCapacity] invalid resource opts %+v, err: %v", opts, err)
+		return nil, 0, err
+	}
+
 	capacityInfoMap := map[string]*types.NodeCapacityInfo{}
+	total := 0
 	for _, node := range nodes {
 		resourceInfo, err := c.doGetNodeResourceInfo(ctx, node)
 		if err != nil {
-			logrus.Errorf("[SelectAvailableNodes] failed to get resource info of node %v, err: %v", node, err)
-			return nil, err
+			logrus.Errorf("[GetNodesCapacity] failed to get resource info of node %v, err: %v", node, err)
+			return nil, 0, err
 		}
 		capacityInfo := c.doGetNodeCapacityInfo(node, resourceInfo, opts)
 		if capacityInfo.Capacity > 0 {
 			capacityInfoMap[node] = capacityInfo
+			total += capacityInfo.Capacity
 		}
 	}
 
-	return capacityInfoMap, nil
+	return capacityInfoMap, total, nil
 }
 
 func (c *CPUMem) doGetNodeCapacityInfo(node string, resourceInfo *types.NodeResourceInfo, opts *types.WorkloadResourceOpts) *types.NodeCapacityInfo {
@@ -55,5 +64,5 @@ func (c *CPUMem) doGetNodeCapacityInfo(node string, resourceInfo *types.NodeReso
 	capacityInfo.Rate = opts.CPURequest / resourceInfo.Capacity.CPU
 	capacityInfo.Weight = 100
 
-	return nil
+	return capacityInfo
 }
