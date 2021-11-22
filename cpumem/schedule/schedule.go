@@ -69,7 +69,7 @@ func GetCPUPlans(cpuCore *types.NodeResourceInfo, originCPUMap types.CPUMap, sha
 	availableResourceArgs := cpuCore.GetAvailableResource()
 
 	numaCPUMap := map[string]types.CPUMap{}
-	for cpuID, numaNodeID := range cpuCore.NUMA {
+	for cpuID, numaNodeID := range cpuCore.Capacity.NUMA {
 		if _, ok := numaCPUMap[numaNodeID]; !ok {
 			numaCPUMap[numaNodeID] = types.CPUMap{}
 		}
@@ -149,7 +149,7 @@ func doGetCPUPlans(originCPUMap, availableCPUMap types.CPUMap, availableMemory i
 	cpuPlans := h.getCPUPlans(cpuRequest)
 	if memoryRequest > 0 {
 		memoryCapacity := int(availableMemory / memoryRequest)
-		if memoryCapacity > len(cpuPlans) {
+		if memoryCapacity < len(cpuPlans) {
 			cpuPlans = cpuPlans[:memoryCapacity]
 		}
 	}
@@ -296,7 +296,7 @@ func (h *host) getFullCPUPlans(cores []*cpuCore, full int) []types.CPUMap {
 func (h *host) getFullCPUPlansWithAffinity(cores []*cpuCore, full int) []types.CPUMap {
 	result := []types.CPUMap{}
 
-	for len(cores) > full {
+	for len(cores) >= full {
 		count := len(cores) / full
 		tempCores := []*cpuCore{}
 		for i := 0; i < count; i++ {

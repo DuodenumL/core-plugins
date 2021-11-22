@@ -28,6 +28,7 @@ func (c *CPUMem) AddNode(ctx context.Context, node string, resourceOpts *types.N
 			CPUMap:     resourceOpts.CPUMap,
 			Memory:     resourceOpts.Memory,
 			NUMAMemory: resourceOpts.NUMAMemory,
+			NUMA:       resourceOpts.NUMA,
 		},
 		Usage: &types.NodeResourceArgs{
 			CPU:        0,
@@ -35,7 +36,6 @@ func (c *CPUMem) AddNode(ctx context.Context, node string, resourceOpts *types.N
 			Memory:     0,
 			NUMAMemory: types.NUMAMemory{},
 		},
-		NUMA: resourceOpts.NUMA,
 	}
 
 	// if NUMA is set but NUMAMemory is not set

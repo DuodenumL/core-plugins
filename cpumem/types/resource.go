@@ -104,10 +104,17 @@ func (r RawParams) StringSlice(key string) []string {
 	if !r.IsSet(key) {
 		return nil
 	}
-	if s, ok := r[key].([]string); ok {
-		return s
+	res := []string{}
+	if s, ok := r[key].([]interface{}); ok {
+		for _, v := range s {
+			if str, ok := v.(string); ok {
+				res = append(res, str)
+			} else {
+				return nil
+			}
+		}
 	}
-	return nil
+	return res
 }
 
 // Bool .
@@ -186,6 +193,7 @@ type NodeResourceArgs struct {
 	CPUMap     CPUMap     `json:"cpu_map"`
 	Memory     int64      `json:"memory"`
 	NUMAMemory NUMAMemory `json:"numa_memory"`
+	NUMA       NUMA       `json:"numa,omitempty"`
 }
 
 // DeepCopy .
@@ -195,6 +203,7 @@ func (r *NodeResourceArgs) DeepCopy() *NodeResourceArgs {
 		CPUMap:     CPUMap{},
 		Memory:     r.Memory,
 		NUMAMemory: NUMAMemory{},
+		NUMA:       NUMA{},
 	}
 
 	for cpu := range r.CPUMap {
@@ -232,7 +241,6 @@ func (r *NodeResourceArgs) Sub(r1 *NodeResourceArgs) {
 type NodeResourceInfo struct {
 	Capacity *NodeResourceArgs `json:"capacity"`
 	Usage    *NodeResourceArgs `json:"usage"`
-	NUMA     NUMA              `json:"numa"`
 }
 
 // RemoveEmptyCores .
@@ -272,12 +280,12 @@ func (n *NodeResourceInfo) Validate() error {
 		}
 	}
 
-	if len(n.NUMA) > 0 {
-		if len(n.Capacity.NUMAMemory) > 0 || len(n.Usage.NUMAMemory) > 0 {
+	if len(n.Capacity.NUMA) > 0 {
+		if len(n.Capacity.NUMAMemory) != len(n.Capacity.NUMA) {
 			return ErrInvalidNUMAMemory
 		}
 		for cpu := range n.Capacity.CPUMap {
-			if _, ok := n.NUMA[cpu]; !ok {
+			if _, ok := n.Capacity.NUMA[cpu]; !ok {
 				return ErrInvalidNUMA
 			}
 		}
@@ -286,7 +294,7 @@ func (n *NodeResourceInfo) Validate() error {
 			if totalMemory < 0 {
 				return ErrInvalidNUMAMemory
 			}
-			if memoryUsed, ok := n.Usage.NUMAMemory[numaNodeID]; !ok || memoryUsed < 0 || memoryUsed > totalMemory {
+			if memoryUsed := n.Usage.NUMAMemory[numaNodeID]; memoryUsed < 0 || memoryUsed > totalMemory {
 				return ErrInvalidNUMAMemory
 			}
 		}
@@ -464,4 +472,5 @@ type EngineArgs struct {
 	CPUMap   CPUMap  `json:"cpu_map"`
 	NUMANode string  `json:"numa_node"`
 	Memory   int64   `json:"memory"`
+	Remap    bool    `json:"remap"`
 }

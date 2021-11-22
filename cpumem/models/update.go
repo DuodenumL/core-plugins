@@ -49,7 +49,7 @@ func (c *CPUMem) UpdateNodeResourceCapacity(ctx context.Context, node string, re
 	}
 
 	if len(resourceOpts.NUMA) > 0 {
-		resourceInfo.NUMA = resourceOpts.NUMA
+		resourceInfo.Capacity.NUMA = resourceOpts.NUMA
 	}
 
 	if incr {

@@ -2,8 +2,10 @@ package models
 
 import (
 	"context"
-	"github.com/projecteru2/core-plugins/cpumem/types"
+
 	"github.com/sirupsen/logrus"
+
+	"github.com/projecteru2/core-plugins/cpumem/types"
 )
 
 // Remap .
@@ -22,16 +24,23 @@ func (c *CPUMem) Remap(ctx context.Context, node string, workloadResourceMap map
 		}
 	}
 
+	if len(shareCPUMap) == 0 {
+		for cpu := range resourceInfo.Capacity.CPUMap {
+			shareCPUMap[cpu] = c.config.Scheduler.ShareBase
+		}
+	}
+
 	engineArgsMap := map[string]*types.EngineArgs{}
 
 	for workloadID, workloadResourceArgs := range workloadResourceMap {
-		// only process workloads without cpu limit
-		if len(workloadResourceArgs.CPUMap) == 0 && workloadResourceArgs.CPULimit == 0 {
+		// only process workloads without cpu binding
+		if len(workloadResourceArgs.CPUMap) == 0 {
 			engineArgsMap[workloadID] = &types.EngineArgs{
-				CPU:      0,
+				CPU:      workloadResourceArgs.CPULimit,
 				CPUMap:   shareCPUMap,
 				NUMANode: "",
 				Memory:   workloadResourceArgs.MemoryLimit,
+				Remap:    true,
 			}
 		}
 	}
