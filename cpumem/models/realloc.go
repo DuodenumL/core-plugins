@@ -37,6 +37,10 @@ func (c *CPUMem) Realloc(ctx context.Context, node string, originResourceArgs *t
 		MemLimit:   resourceOpts.MemLimit + originResourceArgs.MemoryLimit,
 	}
 
+	if err = finalResourceOpts.Validate(); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// if cpu was specified before, try to ensure cpu affinity
 	var cpuMap types.CPUMap
 	var numaNodeID string
@@ -53,6 +57,10 @@ func (c *CPUMem) Realloc(ctx context.Context, node string, originResourceArgs *t
 		numaNodeID = cpuPlan.NUMANode
 		if len(numaNodeID) > 0 {
 			numaMemory = types.NUMAMemory{numaNodeID: finalResourceOpts.MemRequest}
+		}
+	} else {
+		if _, _, err = c.doAllocByMemory(resourceInfo, 1, finalResourceOpts); err != nil {
+			return nil, nil, nil, err
 		}
 	}
 

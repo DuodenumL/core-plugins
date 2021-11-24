@@ -264,8 +264,19 @@ func (n *NodeResourceInfo) Validate() error {
 	if n.Capacity == nil || len(n.Capacity.CPUMap) == 0 {
 		return ErrInvalidCapacity
 	}
-	if n.Usage == nil || len(n.Usage.CPUMap) == 0 {
-		return ErrInvalidUsage
+	if n.Usage == nil {
+		n.Usage = &NodeResourceArgs{
+			CPU:        0,
+			CPUMap:     CPUMap{},
+			Memory:     0,
+			NUMAMemory: NUMAMemory{},
+		}
+		for cpuID := range n.Capacity.CPUMap {
+			n.Usage.CPUMap[cpuID] = 0
+		}
+		for numaNodeID := range n.Capacity.NUMAMemory {
+			n.Usage.NUMAMemory[numaNodeID] = 0
+		}
 	}
 	if len(n.Capacity.CPUMap) == 0 || len(n.Capacity.CPUMap) != len(n.Usage.CPUMap) {
 		return ErrInvalidCPUMap
@@ -281,12 +292,11 @@ func (n *NodeResourceInfo) Validate() error {
 	}
 
 	if len(n.Capacity.NUMA) > 0 {
-		if len(n.Capacity.NUMAMemory) != len(n.Capacity.NUMA) {
-			return ErrInvalidNUMAMemory
-		}
 		for cpu := range n.Capacity.CPUMap {
-			if _, ok := n.Capacity.NUMA[cpu]; !ok {
+			if numaNodeID, ok := n.Capacity.NUMA[cpu]; !ok {
 				return ErrInvalidNUMA
+			} else if _, ok = n.Capacity.NUMAMemory[numaNodeID]; !ok {
+				return ErrInvalidNUMAMemory
 			}
 		}
 

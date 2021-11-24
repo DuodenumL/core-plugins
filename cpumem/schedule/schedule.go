@@ -3,6 +3,7 @@ package schedule
 import (
 	"container/heap"
 	"sort"
+	"strconv"
 
 	"github.com/projecteru2/core-plugins/cpumem/types"
 )
@@ -12,7 +13,16 @@ type cpuCore struct {
 	pieces int
 }
 
-type cpuCoreHeap []cpuCore
+func (c *cpuCore) LessThan(c1 *cpuCore) bool {
+	if c.pieces == c1.pieces {
+		idI, _ := strconv.Atoi(c.id)
+		idJ, _ := strconv.Atoi(c1.id)
+		return idI < idJ
+	}
+	return c.pieces < c1.pieces
+}
+
+type cpuCoreHeap []*cpuCore
 
 // Len .
 func (c cpuCoreHeap) Len() int {
@@ -21,7 +31,7 @@ func (c cpuCoreHeap) Len() int {
 
 // Less .
 func (c cpuCoreHeap) Less(i, j int) bool {
-	return c[i].pieces > c[j].pieces
+	return !c[i].LessThan(c[j])
 }
 
 // Swap .
@@ -31,7 +41,7 @@ func (c cpuCoreHeap) Swap(i, j int) {
 
 // Push .
 func (c *cpuCoreHeap) Push(x interface{}) {
-	*c = append(*c, x.(cpuCore))
+	*c = append(*c, x.(*cpuCore))
 }
 
 // Pop .
@@ -64,12 +74,12 @@ func min(a, b int) int {
 }
 
 // GetCPUPlans .
-func GetCPUPlans(cpuCore *types.NodeResourceInfo, originCPUMap types.CPUMap, shareBase int, maxFragmentCores int, resourceOpts *types.WorkloadResourceOpts) []*cpuPlan {
+func GetCPUPlans(resourceInfo *types.NodeResourceInfo, originCPUMap types.CPUMap, shareBase int, maxFragmentCores int, resourceOpts *types.WorkloadResourceOpts) []*cpuPlan {
 	cpuPlans := []*cpuPlan{}
-	availableResourceArgs := cpuCore.GetAvailableResource()
+	availableResourceArgs := resourceInfo.GetAvailableResource()
 
 	numaCPUMap := map[string]types.CPUMap{}
-	for cpuID, numaNodeID := range cpuCore.Capacity.NUMA {
+	for cpuID, numaNodeID := range resourceInfo.Capacity.NUMA {
 		if _, ok := numaCPUMap[numaNodeID]; !ok {
 			numaCPUMap[numaNodeID] = types.CPUMap{}
 		}
@@ -172,9 +182,15 @@ func newHost(cpuMap types.CPUMap, shareBase int, maxFragmentCores int) *host {
 		}
 	}
 
-	// give priority to the CPU cores with higher load
-	sort.Slice(h.fullCores, func(i, j int) bool { return h.fullCores[i].pieces < h.fullCores[j].pieces })
-	sort.Slice(h.fragmentCores, func(i, j int) bool { return h.fragmentCores[i].pieces < h.fragmentCores[j].pieces })
+	sortFunc := func(cores []*cpuCore) func(i, j int) bool {
+		return func(i, j int) bool {
+			// give priority to the CPU cores with higher load
+			return cores[i].LessThan(cores[j])
+		}
+	}
+
+	sort.SliceStable(h.fullCores, sortFunc(h.fullCores))
+	sort.SliceStable(h.fragmentCores, sortFunc(h.fragmentCores))
 
 	return h
 }
@@ -255,16 +271,16 @@ func (h *host) getFullCPUPlans(cores []*cpuCore, full int) []types.CPUMap {
 	indexMap := map[string]int{}
 	for i, core := range cores {
 		indexMap[core.id] = i
-		cpuHeap.Push(cpuCore{id: core.id, pieces: core.pieces})
+		cpuHeap.Push(&cpuCore{id: core.id, pieces: core.pieces})
 	}
 	heap.Init(cpuHeap)
 
 	for cpuHeap.Len() >= full {
 		plan := types.CPUMap{}
-		resourcesToPush := []cpuCore{}
+		resourcesToPush := []*cpuCore{}
 
 		for i := 0; i < full; i++ {
-			core := heap.Pop(cpuHeap).(cpuCore)
+			core := heap.Pop(cpuHeap).(*cpuCore)
 			plan[core.id] = h.shareBase
 
 			core.pieces -= h.shareBase
