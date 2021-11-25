@@ -30,13 +30,13 @@ func (c *CPUMem) Alloc(ctx context.Context, node string, deployCount int, opts *
 }
 
 func (c *CPUMem) doAllocByMemory(resourceInfo *types.NodeResourceInfo, deployCount int, opts *types.WorkloadResourceOpts) ([]*types.EngineArgs, []*types.WorkloadResourceArgs, error) {
-	if opts.CPULimit > float64(len(resourceInfo.Capacity.CPUMap)) {
+	if opts.CPURequest > float64(len(resourceInfo.Capacity.CPUMap)) {
 		return nil, nil, types.ErrInsufficientCPU
 	}
 
 	availableResourceArgs := resourceInfo.GetAvailableResource()
-	if availableResourceArgs.Memory / opts.MemRequest < int64(deployCount) {
-		return nil, nil, types.ErrInsufficientMEM
+	if opts.MemRequest > 0 && availableResourceArgs.Memory / opts.MemRequest < int64(deployCount) {
+		return nil, nil, types.ErrInsufficientMem
 	}
 
 	resEngineArgs := []*types.EngineArgs{}
@@ -65,7 +65,7 @@ func (c *CPUMem) doAllocByMemory(resourceInfo *types.NodeResourceInfo, deployCou
 func (c *CPUMem) doAllocByCPU(resourceInfo *types.NodeResourceInfo, deployCount int, opts *types.WorkloadResourceOpts) ([]*types.EngineArgs, []*types.WorkloadResourceArgs, error) {
 	cpuPlans := schedule.GetCPUPlans(resourceInfo, nil, c.config.Scheduler.ShareBase, c.config.Scheduler.MaxShare, opts)
 	if len(cpuPlans) < deployCount {
-		return nil, nil, types.ErrInsufficientCPU
+		return nil, nil, types.ErrInsufficientResource
 	}
 
 	cpuPlans = cpuPlans[:deployCount]

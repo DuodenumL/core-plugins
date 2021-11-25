@@ -2,53 +2,17 @@ package models
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strconv"
+	"math"
 	"testing"
 
 	"github.com/docker/go-units"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/projecteru2/core-plugins/cpumem/types"
-	"github.com/projecteru2/core/store/etcdv3/meta"
 	coretypes "github.com/projecteru2/core/types"
 )
-
-func generateNodeResourceInfos(t *testing.T, nums int, cores int, memory int64, shares int) []*types.NodeResourceInfo {
-	infos := []*types.NodeResourceInfo{}
-	for i := 0; i < nums; i++ {
-		cpuMap := types.CPUMap{}
-		for c := 0; c < cores; c++ {
-			cpuMap[strconv.Itoa(c)] = shares
-		}
-
-		info := &types.NodeResourceInfo{
-			Capacity: &types.NodeResourceArgs{
-				CPU:    float64(cores),
-				CPUMap: cpuMap,
-				Memory: memory,
-			},
-			Usage: nil,
-		}
-		assert.Nil(t, info.Validate())
-
-		infos = append(infos, info)
-	}
-	return infos
-}
-
-func generateNodes(t *testing.T, cpuMem *CPUMem, nums int, cores int, memory int64, shares int) []string {
-	nodes := []string{}
-	infos := generateNodeResourceInfos(t, nums, cores, memory, shares)
-
-	for i, info := range infos {
-		nodeName := fmt.Sprintf("node%d", i)
-		assert.Nil(t, cpuMem.doSetNodeResourceInfo(context.Background(), nodeName, info))
-		nodes = append(nodes, nodeName)
-	}
-
-	return nodes
-}
 
 func generateComplexNodes(t *testing.T, cpuMem *CPUMem) []string {
 	infos := []*types.NodeResourceInfo{
@@ -158,29 +122,21 @@ func generateComplexNodes(t *testing.T, cpuMem *CPUMem) []string {
 	return nodes
 }
 
-func newTestCPUMem(t *testing.T) *CPUMem {
-	config := &types.Config{
-		Scheduler: types.SchedConfig{
-			MaxShare:  -1,
-			ShareBase: 100,
-		},
-	}
-	cpuMem := &CPUMem{
-		config: config,
-	}
-	store, err := meta.NewETCD(coretypes.EtcdConfig{Prefix: "/cpumem"}, t)
-	assert.Nil(t, err)
-	cpuMem.store = store
-	return cpuMem
-}
-
 func TestGetNodesCapacityWithCPUBinding(t *testing.T) {
 	ctx := context.Background()
 
 	cpuMem := newTestCPUMem(t)
 	nodes := generateNodes(t, cpuMem, 2, 2, 4*units.GiB, 100)
 
-	_, total, err := cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	// non-existent node
+	_, total, err := cpuMem.GetNodesCapacity(ctx, []string{"xxx"}, &types.WorkloadResourceOpts{
+		CPUBind:    true,
+		CPURequest: 0.5,
+		MemRequest: 1,
+	})
+	assert.True(t, errors.Is(err, coretypes.ErrBadCount))
+
+	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    true,
 		CPURequest: 0.5,
 		MemRequest: 1,
@@ -292,4 +248,55 @@ func BenchmarkGetNodesCapacity(b *testing.B) {
 		})
 		assert.Nil(b, err)
 	}
+}
+
+func TestGetNodesCapacityByMemory(t *testing.T) {
+	ctx := context.Background()
+
+	cpuMem := newTestCPUMem(t)
+	nodes := generateNodes(t, cpuMem, 2, 2, 4*units.GiB, 100)
+
+	// negative memory
+	_, _, err := cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+		CPUBind:    false,
+		CPURequest: 0,
+		MemRequest: -1,
+	})
+	assert.True(t, errors.Is(err, types.ErrInvalidMemory))
+
+	// cpu + mem
+	_, total, err := cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+		CPUBind:    false,
+		CPURequest: 1,
+		MemRequest: 512 * units.MiB,
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, total, 16)
+
+	// unlimited cpu
+	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+		CPUBind:    false,
+		CPURequest: 0,
+		MemRequest: 512 * units.MiB,
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, total, 16)
+
+	// insufficient cpu
+	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+		CPUBind:    false,
+		CPURequest: 3,
+		MemRequest: 512 * units.MiB,
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, total, 0)
+
+	// mem_request == 0
+	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+		CPUBind:    false,
+		CPURequest: 1,
+		MemRequest: 0,
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, total, math.MaxInt)
 }

@@ -15,24 +15,6 @@ import (
 // CPUMap .
 type CPUMap map[string]int
 
-// TotalPieces .
-func (c CPUMap) TotalPieces() int {
-	res := 0
-	for _, pieces := range c {
-		res += pieces
-	}
-	return res
-}
-
-// DeepCopy .
-func (c CPUMap) DeepCopy() CPUMap {
-	res := CPUMap{}
-	for cpu, pieces := range c {
-		res[cpu] = pieces
-	}
-	return res
-}
-
 // Sub .
 func (c CPUMap) Sub(c1 CPUMap) {
 	for cpu, pieces := range c1 {
@@ -278,15 +260,12 @@ func (n *NodeResourceInfo) Validate() error {
 			n.Usage.NUMAMemory[numaNodeID] = 0
 		}
 	}
-	if len(n.Capacity.CPUMap) == 0 || len(n.Capacity.CPUMap) != len(n.Usage.CPUMap) {
+	if len(n.Capacity.CPUMap) == 0 {
 		return ErrInvalidCPUMap
 	}
 
-	for cpu, totalPieces := range n.Capacity.CPUMap {
-		if totalPieces < 0 {
-			return ErrInvalidCPUMap
-		}
-		if piecesUsed, ok := n.Usage.CPUMap[cpu]; !ok || piecesUsed < 0 || piecesUsed > totalPieces {
+	for cpu, piecesUsed := range n.Usage.CPUMap {
+		if totalPieces, ok := n.Capacity.CPUMap[cpu]; !ok || piecesUsed < 0 || totalPieces < 0 || piecesUsed > totalPieces {
 			return ErrInvalidCPUMap
 		}
 	}
@@ -308,6 +287,10 @@ func (n *NodeResourceInfo) Validate() error {
 				return ErrInvalidNUMAMemory
 			}
 		}
+	}
+
+	if n.Capacity.NUMAMemory == nil {
+		n.Capacity.NUMAMemory = NUMAMemory{}
 	}
 
 	return nil
@@ -435,6 +418,9 @@ func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
 					return err
 				}
 				cpuID := cpuConfigs[0]
+				if _, err := strconv.Atoi(cpuID); err != nil {
+					return err
+				}
 				n.CPUMap[cpuID] = int(pieces)
 			}
 		}

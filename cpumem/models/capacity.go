@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"math"
 
 	"github.com/sirupsen/logrus"
 
@@ -27,7 +28,11 @@ func (c *CPUMem) GetNodesCapacity(ctx context.Context, nodes []string, opts *typ
 		capacityInfo := c.doGetNodeCapacityInfo(node, resourceInfo, opts)
 		if capacityInfo.Capacity > 0 {
 			capacityInfoMap[node] = capacityInfo
-			total += capacityInfo.Capacity
+			if total == math.MaxInt || capacityInfo.Capacity == math.MaxInt {
+				total = math.MaxInt
+			} else {
+				total += capacityInfo.Capacity
+			}
 		}
 	}
 
@@ -50,9 +55,14 @@ func (c *CPUMem) doGetNodeCapacityInfo(node string, resourceInfo *types.NodeReso
 		}
 
 		// calculate by memory request
-		capacityInfo.Capacity = int(availableResourceArgs.Memory / opts.MemRequest)
+		if opts.MemRequest == 0 {
+			capacityInfo.Capacity = math.MaxInt
+			capacityInfo.Rate = 0
+		} else {
+			capacityInfo.Capacity = int(availableResourceArgs.Memory / opts.MemRequest)
+			capacityInfo.Rate = float64(opts.MemRequest) / float64(resourceInfo.Capacity.Memory)
+		}
 		capacityInfo.Usage = float64(resourceInfo.Usage.Memory) / float64(resourceInfo.Capacity.Memory)
-		capacityInfo.Rate = float64(opts.MemRequest) / float64(resourceInfo.Capacity.Memory)
 
 		return capacityInfo
 	}

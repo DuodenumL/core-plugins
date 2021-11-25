@@ -22,7 +22,10 @@ func (c *CPUMem) GetNodeResourceInfo(ctx context.Context, node string, workloadR
 
 	diffs := []string{}
 
-	totalResourceArgs := &types.WorkloadResourceArgs{}
+	totalResourceArgs := &types.WorkloadResourceArgs{
+		CPUMap:     types.CPUMap{},
+		NUMAMemory: types.NUMAMemory{},
+	}
 	for _, args := range workloadResourceMap {
 		totalResourceArgs.Add(args)
 	}
@@ -33,13 +36,13 @@ func (c *CPUMem) GetNodeResourceInfo(ctx context.Context, node string, workloadR
 		diffs = append(diffs, fmt.Sprintf("node.CPUUsed != sum(workload.CPURequest): %.2f != %.2f", totalCPUUsage, totalResourceArgs.CPURequest))
 	}
 
-	for cpu := range totalResourceArgs.CPUMap {
+	for cpu := range resourceInfo.Capacity.CPUMap {
 		if totalResourceArgs.CPUMap[cpu] != resourceInfo.Usage.CPUMap[cpu] {
 			diffs = append(diffs, fmt.Sprintf("node.CPUMap[%v] != sum(workload.CPUMap[%v]): %v != %v", cpu, cpu, resourceInfo.Usage.CPUMap[cpu], totalResourceArgs.CPUMap[cpu]))
 		}
 	}
 
-	for numaNodeID := range totalResourceArgs.NUMAMemory {
+	for numaNodeID := range resourceInfo.Capacity.NUMAMemory {
 		if totalResourceArgs.NUMAMemory[numaNodeID] != resourceInfo.Usage.NUMAMemory[numaNodeID] {
 			diffs = append(diffs, fmt.Sprintf("node.NUMAMemory[%v] != sum(workload.NUMAMemory[%v]: %v != %v)", numaNodeID, numaNodeID, resourceInfo.Usage.NUMAMemory[numaNodeID], totalResourceArgs.NUMAMemory[numaNodeID]))
 		}
@@ -51,6 +54,7 @@ func (c *CPUMem) GetNodeResourceInfo(ctx context.Context, node string, workloadR
 
 	if fix {
 		resourceInfo.Usage = &types.NodeResourceArgs{
+			CPU:        totalResourceArgs.CPURequest,
 			CPUMap:     totalResourceArgs.CPUMap,
 			Memory:     totalResourceArgs.MemoryRequest,
 			NUMAMemory: totalResourceArgs.NUMAMemory,

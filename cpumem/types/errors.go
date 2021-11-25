@@ -11,7 +11,7 @@ var (
 	ErrInvalidCPU        = errors.New("invalid cpu")
 
 	ErrInsufficientCPU      = errors.New("cannot alloc a plan, not enough cpu")
-	ErrInsufficientMEM      = errors.New("cannot alloc a plan, not enough memory")
+	ErrInsufficientMem      = errors.New("cannot alloc a plan, not enough memory")
 	ErrInsufficientResource = errors.New("cannot alloc a plan, not enough resource")
 
 	ErrNodeExists = errors.New("node already exists")
