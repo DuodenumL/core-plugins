@@ -15,4 +15,5 @@ var Commands = []*cli.Command{
 	removeNodeCommand,
 	updateCapacityCommand,
 	updateUsageCommand,
+	getIdleCommand,
 }

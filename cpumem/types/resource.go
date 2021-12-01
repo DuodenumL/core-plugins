@@ -15,6 +15,15 @@ import (
 // CPUMap .
 type CPUMap map[string]int
 
+// TotalPieces .
+func (c CPUMap) TotalPieces() int {
+	res := 0
+	for _, pieces := range c {
+		res += pieces
+	}
+	return res
+}
+
 // Sub .
 func (c CPUMap) Sub(c1 CPUMap) {
 	for cpu, pieces := range c1 {

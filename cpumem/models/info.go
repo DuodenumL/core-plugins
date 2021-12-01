@@ -86,11 +86,11 @@ func (c *CPUMem) doGetNodeResourceInfo(ctx context.Context, node string) (*types
 	resourceInfo := &types.NodeResourceInfo{}
 	resp, err := c.store.GetOne(ctx, fmt.Sprintf(NodeResourceInfoKey, node))
 	if err != nil {
-		logrus.Errorf("[doGetNodeResourceInfo] failed to get node resource info, err: %v", err)
+		logrus.Errorf("[doGetNodeResourceInfo] failed to get node resource info of node %v, err: %v", node, err)
 		return nil, err
 	}
 	if err = json.Unmarshal(resp.Value, resourceInfo); err != nil {
-		logrus.Errorf("[doGetNodeResourceInfo] failed to unmarshal node resource info, err: %v", err)
+		logrus.Errorf("[doGetNodeResourceInfo] failed to unmarshal node resource info of node %v, err: %v", node, err)
 		return nil, err
 	}
 	return resourceInfo, nil
