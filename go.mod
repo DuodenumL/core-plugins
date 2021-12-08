@@ -7,6 +7,7 @@ require (
 	github.com/jinzhu/configor v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/projecteru2/core v0.0.0-20211111110124-63cb52509efc
+	github.com/sanity-io/litter v1.5.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
@@ -43,7 +44,6 @@ require (
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
-	github.com/sanity-io/litter v1.5.1 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

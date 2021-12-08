@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/projecteru2/core-plugins/cpumem/utils"
+	pluginutils "github.com/projecteru2/core-plugins/utils"
 	coreutils "github.com/projecteru2/core/utils"
 )
 
@@ -56,61 +57,6 @@ func (n NUMAMemory) Sub(n1 NUMAMemory) {
 	for numaNodeID, memory := range n1 {
 		n[numaNodeID] -= memory
 	}
-}
-
-// RawParams .
-type RawParams map[string]interface{}
-
-// IsSet .
-func (r RawParams) IsSet(key string) bool {
-	_, ok := r[key]
-	return ok
-}
-
-// Float64 .
-func (r RawParams) Float64(key string) float64 {
-	res, _ := strconv.ParseFloat(fmt.Sprintf("%v", r[key]), 64)
-	return res
-}
-
-// Int64 .
-func (r RawParams) Int64(key string) int64 {
-	res, _ := strconv.ParseInt(fmt.Sprintf("%v", r[key]), 10, 64)
-	return res
-}
-
-// String .
-func (r RawParams) String(key string) string {
-	if !r.IsSet(key) {
-		return ""
-	}
-	if str, ok := r[key].(string); ok {
-		return str
-	}
-	return ""
-}
-
-// StringSlice .
-func (r RawParams) StringSlice(key string) []string {
-	if !r.IsSet(key) {
-		return nil
-	}
-	res := []string{}
-	if s, ok := r[key].([]interface{}); ok {
-		for _, v := range s {
-			if str, ok := v.(string); ok {
-				res = append(res, str)
-			} else {
-				return nil
-			}
-		}
-	}
-	return res
-}
-
-// Bool .
-func (r RawParams) Bool(key string) bool {
-	return r.IsSet(key)
 }
 
 // WorkloadResourceArgs .
@@ -355,7 +301,7 @@ func (w *WorkloadResourceOpts) Validate() error {
 
 // ParseFromString .
 func (w *WorkloadResourceOpts) ParseFromString(str string) (err error) {
-	rawParams := RawParams{}
+	rawParams := pluginutils.RawParams{}
 	if err = json.Unmarshal([]byte(str), &rawParams); err != nil {
 		return err
 	}
@@ -369,16 +315,16 @@ func (w *WorkloadResourceOpts) ParseFromString(str string) (err error) {
 		w.CPURequest = cpu
 		w.CPULimit = cpu
 	}
-	if w.MemRequest, err = utils.ParseRAMInHuman(rawParams.String("memory-request")); err != nil {
+	if w.MemRequest, err = pluginutils.ParseRAMInHuman(rawParams.String("memory-request")); err != nil {
 		return err
 	}
-	if w.MemLimit, err = utils.ParseRAMInHuman(rawParams.String("memory-limit")); err != nil {
+	if w.MemLimit, err = pluginutils.ParseRAMInHuman(rawParams.String("memory-limit")); err != nil {
 		return err
 	}
 	// check if mem shortcut is set
 	if rawParams.IsSet("memory") {
 		var mem int64
-		if mem, err = utils.ParseRAMInHuman(rawParams.String("memory")); err != nil {
+		if mem, err = pluginutils.ParseRAMInHuman(rawParams.String("memory")); err != nil {
 			return err
 		}
 		w.MemLimit = mem
@@ -398,7 +344,7 @@ type NodeResourceOpts struct {
 }
 
 func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
-	rawParams := RawParams{}
+	rawParams := pluginutils.RawParams{}
 	if err = json.Unmarshal([]byte(str), &rawParams); err != nil {
 		return err
 	}
@@ -435,7 +381,7 @@ func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
 		}
 	}
 
-	if n.Memory, err = utils.ParseRAMInHuman(rawParams.String("memory")); err != nil {
+	if n.Memory, err = pluginutils.ParseRAMInHuman(rawParams.String("memory")); err != nil {
 		return err
 	}
 	n.NUMA = NUMA{}
@@ -450,7 +396,7 @@ func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
 
 	for index, memoryStr := range rawParams.StringSlice("numa-memory") {
 		nodeID := fmt.Sprintf("%d", index)
-		mem, err := utils.ParseRAMInHuman(memoryStr)
+		mem, err := pluginutils.ParseRAMInHuman(memoryStr)
 		if err != nil {
 			return err
 		}
