@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/sanity-io/litter"
 	"github.com/sirupsen/logrus"
 
 	"github.com/projecteru2/core-plugins/volume/types"
@@ -78,7 +79,7 @@ func (v *Volume) doGetNodeResourceInfo(ctx context.Context, node string) (*types
 
 func (v *Volume) doSetNodeResourceInfo(ctx context.Context, node string, resourceInfo *types.NodeResourceInfo) error {
 	if err := resourceInfo.Validate(); err != nil {
-		logrus.Errorf("[doSetNodeResourceInfo] invalid resource info %+v, err: %v", resourceInfo, err)
+		logrus.Errorf("[doSetNodeResourceInfo] invalid resource info %v, err: %v", litter.Sdump(resourceInfo), err)
 		return err
 	}
 

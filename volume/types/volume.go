@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
+
+	"github.com/projecteru2/core-plugins/utils"
 )
 
 const auto = "AUTO"
@@ -33,7 +34,7 @@ func NewVolumeBinding(volume string) (_ *VolumeBinding, err error) {
 		src, dst, flags = parts[0], parts[1], parts[2]
 	case 4:
 		src, dst, flags = parts[0], parts[1], parts[2]
-		if size, err = strconv.ParseInt(parts[3], 10, 64); err != nil {
+		if size, err = utils.ParseRAMInHuman(parts[3]); err != nil {
 			return nil, errors.WithStack(err)
 		}
 	default:
@@ -100,6 +101,11 @@ func (vb VolumeBinding) ToString(normalize bool) (volume string) {
 	return volume
 }
 
+// GetMapKey .
+func (vb VolumeBinding) GetMapKey() [3]string {
+	return [3]string{vb.Source, vb.Destination, vb.Flags}
+}
+
 // VolumeBindings is a collection of VolumeBinding
 type VolumeBindings []*VolumeBinding
 
@@ -143,13 +149,24 @@ func (vbs VolumeBindings) TotalSize() (total int64) {
 	return
 }
 
+// ApplyPlan creates new VolumeBindings according to volume plan
+func (vbs VolumeBindings) ApplyPlan(plan VolumePlan) (res VolumeBindings) {
+	for _, vb := range vbs {
+		newVb := &VolumeBinding{vb.Source, vb.Destination, vb.Flags, vb.SizeInBytes}
+		if vmap, _ := plan.GetVolumeMap(vb); vmap != nil {
+			newVb.Source = vmap.GetDevice()
+		}
+		res = append(res, newVb)
+	}
+	return
+}
+
 // MergeVolumeBindings combines two VolumeBindings
 func MergeVolumeBindings(vbs1 VolumeBindings, vbs2 ...VolumeBindings) (vbs VolumeBindings) {
 	sizeMap := map[[3]string]int64{} // {["AUTO", "/data", "rw"]: 100}
 	for _, vbs := range append(vbs2, vbs1) {
 		for _, vb := range vbs {
-			key := [3]string{vb.Source, vb.Destination, vb.Flags}
-			sizeMap[key] += vb.SizeInBytes
+			sizeMap[vb.GetMapKey()] += vb.SizeInBytes
 		}
 	}
 
@@ -190,6 +207,22 @@ func (v VolumeMap) Sub(v1 VolumeMap) {
 	for key, value := range v1 {
 		v[key] -= value
 	}
+}
+
+// GetDevice returns the first device
+func (v VolumeMap) GetDevice() string {
+	for key := range v {
+		return key
+	}
+	return ""
+}
+
+// GetSize returns the first size
+func (v VolumeMap) GetSize() int64 {
+	for _, size := range v {
+		return size
+	}
+	return 0
 }
 
 // Total .
@@ -236,6 +269,27 @@ func (p VolumePlan) MarshalJSON() ([]byte, error) {
 // Merge .
 func (p VolumePlan) Merge(p2 VolumePlan) {
 	for vb, vm := range p2 {
+		if oldVM, oldVB := p.GetVolumeMap(vb); oldVB != nil {
+			delete(p, oldVB)
+			vm[vm.GetDevice()] += oldVM.GetSize()
+			vm = VolumeMap{vm.GetDevice(): vm.GetSize() + oldVM.GetSize()}
+			vb = &VolumeBinding{
+				Source:      vb.Source,
+				Destination: vb.Destination,
+				Flags:       vb.Flags,
+				SizeInBytes: vb.SizeInBytes + oldVB.SizeInBytes,
+			}
+		}
 		p[vb] = vm
 	}
+}
+
+// GetVolumeMap looks up VolumeMap according to volume destination directory
+func (p VolumePlan) GetVolumeMap(vb *VolumeBinding) (volMap VolumeMap, volume *VolumeBinding) {
+	for volume, volMap := range p {
+		if vb.Destination == volume.Destination {
+			return volMap, volume
+		}
+	}
+	return
 }

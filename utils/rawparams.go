@@ -55,6 +55,16 @@ func (r RawParams) StringSlice(key string) []string {
 	return res
 }
 
+// OneOfStringSlice .
+func (r RawParams) OneOfStringSlice(keys ...string) []string {
+	for _, key := range keys {
+		if res := r.StringSlice(key); len(res) > 0 {
+			return res
+		}
+	}
+	return nil
+}
+
 // Bool .
 func (r RawParams) Bool(key string) bool {
 	return r.IsSet(key)

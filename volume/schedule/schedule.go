@@ -5,6 +5,8 @@ import (
 	"math"
 	"sort"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/projecteru2/core-plugins/volume/types"
 )
 
@@ -96,6 +98,29 @@ func newHost(resourceInfo *types.NodeResourceInfo, maxDeployCount int) *host {
 	return h
 }
 
+func (h *host) getMonoPlan(monoRequests types.VolumeBindings, totalRequestSize int64, volume *volume) types.VolumePlan {
+	if volume.size < totalRequestSize {
+		return nil
+	}
+	volumePlan := types.VolumePlan{}
+
+	volumeSize := volume.size
+	for _, req := range monoRequests {
+		size := int64(float64(req.SizeInBytes) / float64(totalRequestSize) * float64(volumeSize))
+		volumePlan[req] = types.VolumeMap{volume.device: size}
+		volume.size -= size
+	}
+
+	if volume.size != 0 {
+		for _, volumeMap := range volumePlan {
+			volumeMap[volumeMap.GetDevice()] += volume.size
+			break
+		}
+	}
+
+	return volumePlan
+}
+
 func (h *host) getMonoPlans(monoRequests types.VolumeBindings) ([]types.VolumePlan, int) {
 	if len(monoRequests) == 0 {
 		return []types.VolumePlan{}, h.maxDeployCount
@@ -104,25 +129,21 @@ func (h *host) getMonoPlans(monoRequests types.VolumeBindings) ([]types.VolumePl
 		return []types.VolumePlan{}, 0
 	}
 
+	totalSize := int64(0)
+	for _, req := range monoRequests {
+		totalSize += req.SizeInBytes
+	}
+
 	volumes := h.unusedVolumes.DeepCopy()
 	volumePlans := []types.VolumePlan{}
-	volumePlan := types.VolumePlan{}
 
-	// h.unusedVolumes and monoRequests have already been sorted
-	reqIndex := 0
-	for volumeIndex := 0; volumeIndex < len(volumes); volumeIndex++ {
-		request := monoRequests[reqIndex]
-		volume := volumes[volumeIndex]
-		if volume.size < request.SizeInBytes {
-			continue
-		}
-		volumePlan[request] = types.VolumeMap{volume.device: volume.size}
-		if reqIndex == len(monoRequests)-1 {
+	// h.unusedVolumes have already been sorted
+	for _, volume := range volumes {
+		if volumePlan := h.getMonoPlan(monoRequests, totalSize, volume); volumePlan != nil {
 			volumePlans = append(volumePlans, volumePlan)
-			volumePlan = types.VolumePlan{}
 		}
-		reqIndex = (reqIndex + 1) % len(monoRequests)
 	}
+
 	return volumePlans, len(volumePlans)
 }
 
@@ -179,24 +200,6 @@ func (h *host) getNormalPlans(normalRequests types.VolumeBindings) ([]types.Volu
 	return volumePlans, len(volumePlans)
 }
 
-func (h *host) classifyVolumeBindings(volumeBindings types.VolumeBindings) (normalRequests, monoRequests, unlimitedRequests types.VolumeBindings) {
-	for _, binding := range volumeBindings {
-		switch {
-		case binding.RequireScheduleMonopoly():
-			monoRequests = append(monoRequests, binding)
-		case binding.RequireScheduleUnlimitedQuota():
-			unlimitedRequests = append(unlimitedRequests, binding)
-		case binding.RequireSchedule():
-			normalRequests = append(normalRequests, binding)
-		}
-	}
-
-	sort.SliceStable(monoRequests, func(i, j int) bool { return monoRequests[i].SizeInBytes < monoRequests[j].SizeInBytes })
-	sort.SliceStable(normalRequests, func(i, j int) bool { return normalRequests[i].SizeInBytes < normalRequests[j].SizeInBytes })
-
-	return normalRequests, monoRequests, unlimitedRequests
-}
-
 func (h *host) getUnlimitedPlans(normalPlans, monoPlans []types.VolumePlan, unlimitedRequests types.VolumeBindings) []types.VolumePlan {
 	capacity := len(normalPlans)
 
@@ -206,7 +209,7 @@ func (h *host) getUnlimitedPlans(normalPlans, monoPlans []types.VolumePlan, unli
 		volumeMap[volume.device] = volume
 	}
 
-	// apply changes
+	// apply normal changes
 	for _, plan := range normalPlans {
 		for _, vm := range plan {
 			for device, size := range vm {
@@ -214,6 +217,8 @@ func (h *host) getUnlimitedPlans(normalPlans, monoPlans []types.VolumePlan, unli
 			}
 		}
 	}
+
+	// apply mono changes
 	for _, plan := range monoPlans {
 		for _, vm := range plan {
 			for device, size := range vm {
@@ -262,7 +267,7 @@ func (h *host) getVolumePlans(volumeBindings types.VolumeBindings) []types.Volum
 	bestCapacity := min(monoCapacity, normalCapacity)
 	bestVolumePlans := [2][]types.VolumePlan{normalPlans[:min(bestCapacity, len(normalPlans))], monoPlans[:min(bestCapacity, len(monoPlans))]}
 
-	for len(monoPlans) > len(normalPlans) && len(h.unusedVolumes) >= len(monoRequests) {
+	for monoCapacity > normalCapacity {
 		// convert an unused volume to used volume
 		p := sort.Search(len(h.unusedVolumes), func(i int) bool { return h.unusedVolumes[i].size >= minNormalRequestSize })
 		// if no volume meets the requirement, just stop
@@ -278,7 +283,7 @@ func (h *host) getVolumePlans(volumeBindings types.VolumeBindings) []types.Volum
 		capacity := min(monoCapacity, normalCapacity)
 		if capacity > bestCapacity {
 			bestCapacity = capacity
-			bestVolumePlans = [2][]types.VolumePlan{normalPlans[:capacity], monoPlans[:capacity]}
+			bestVolumePlans = [2][]types.VolumePlan{normalPlans[:min(len(normalPlans), capacity)], monoPlans[:min(len(monoPlans), capacity)]}
 		}
 	}
 
@@ -302,12 +307,165 @@ func (h *host) getVolumePlans(volumeBindings types.VolumeBindings) []types.Volum
 	return resVolumePlans
 }
 
-// GetVolumePlans .
-func GetVolumePlans(resourceInfo *types.NodeResourceInfo, volumeRequest types.VolumeBindings, existing types.VolumeMap, maxDeployCount int) []types.VolumePlan {
-	if existing != nil {
-		// todo: affinity
+func (h *host) classifyVolumeBindings(volumeBindings types.VolumeBindings) (normalRequests, monoRequests, unlimitedRequests types.VolumeBindings) {
+	for _, binding := range volumeBindings {
+		switch {
+		case binding.RequireScheduleMonopoly():
+			monoRequests = append(monoRequests, binding)
+		case binding.RequireScheduleUnlimitedQuota():
+			unlimitedRequests = append(unlimitedRequests, binding)
+		case binding.RequireSchedule():
+			normalRequests = append(normalRequests, binding)
+		}
 	}
 
+	sort.SliceStable(monoRequests, func(i, j int) bool { return monoRequests[i].SizeInBytes < monoRequests[j].SizeInBytes })
+	sort.SliceStable(normalRequests, func(i, j int) bool { return normalRequests[i].SizeInBytes < normalRequests[j].SizeInBytes })
+
+	return normalRequests, monoRequests, unlimitedRequests
+}
+
+func (h *host) classifyAffinityRequests(requests types.VolumeBindings, existing types.VolumePlan) (affinity map[*types.VolumeBinding]types.VolumeMap, nonAffinity map[*types.VolumeBinding]types.VolumeMap) {
+	affinity = map[*types.VolumeBinding]types.VolumeMap{}
+	nonAffinity = map[*types.VolumeBinding]types.VolumeMap{}
+
+	for _, req := range requests {
+		found := false
+		for binding, volumeMap := range existing {
+			if req.Source == binding.Source && req.Destination == binding.Destination && req.Flags == binding.Flags {
+				affinity[req] = volumeMap
+				found = true
+				break
+			}
+		}
+		if !found {
+			nonAffinity[req] = nil
+		}
+	}
+	return affinity, nonAffinity
+}
+
+func (h *host) getVolumeByDevice(device string) *volume {
+	for _, volume := range h.usedVolumes {
+		if volume.device == device {
+			return volume
+		}
+	}
+	for _, volume := range h.unusedVolumes {
+		if volume.device == device {
+			return volume
+		}
+	}
+	return nil
+}
+
+func (h *host) getAffinityPlan(volumeRequest types.VolumeBindings, existing types.VolumePlan) types.VolumePlan {
+	normalRequests, monoRequests, unlimitedRequests := h.classifyVolumeBindings(volumeRequest)
+	needRescheduleRequests := types.VolumeBindings{}
+	volumePlan := types.VolumePlan{}
+	for binding, volumeMap := range existing {
+		if !binding.RequireScheduleMonopoly() {
+			volumePlan[binding] = volumeMap
+		}
+	}
+
+	commonProcess := func(requests types.VolumeBindings) error {
+		affinity, nonAffinity := h.classifyAffinityRequests(requests, existing)
+		for binding, volumeMap := range affinity {
+			device := volumeMap.GetDevice()
+			size := volumeMap.GetSize()
+			// check if the device has enough space
+			diff := binding.SizeInBytes - size
+			if diff > h.getVolumeByDevice(device).size {
+				logrus.Errorf("[getAffinityPlan] no space to expand, %v remains %v, requires %v", device, h.getVolumeByDevice(device).size, diff)
+				return types.ErrInsufficientResource
+			}
+			volumePlan.Merge(types.VolumePlan{binding: types.VolumeMap{device: binding.SizeInBytes}})
+		}
+		for binding := range nonAffinity {
+			needRescheduleRequests = append(needRescheduleRequests, binding)
+		}
+		return nil
+	}
+
+	// normal
+	if err := commonProcess(normalRequests); err != nil {
+		return nil
+	}
+
+	// mono
+	totalRequestSize := int64(0)
+	totalVolumeSize := int64(0)
+	bindingMap := map[[3]string]*types.VolumeBinding{}
+	for binding, volumeMap := range existing {
+		if binding.RequireScheduleMonopoly() {
+			totalRequestSize += binding.SizeInBytes
+			totalVolumeSize += volumeMap.GetSize()
+			bindingMap[binding.GetMapKey()] = binding
+		}
+	}
+
+	// update bindings
+	for _, binding := range monoRequests {
+		totalRequestSize += binding.SizeInBytes
+		key := binding.GetMapKey()
+		if vb, ok := bindingMap[key]; ok {
+			vb.SizeInBytes += binding.SizeInBytes
+		} else {
+			bindingMap[key] = binding
+		}
+	}
+	requestBindings := types.VolumeBindings{}
+	for _, binding := range bindingMap {
+		requestBindings = append(requestBindings, binding)
+	}
+
+	affinity, nonAffinity := h.classifyAffinityRequests(requestBindings, existing)
+	// if there is no affinity plan: all reschedule
+	if len(affinity) == 0 {
+		for binding := range nonAffinity {
+			needRescheduleRequests = append(needRescheduleRequests, binding)
+		}
+	} else {
+		// if there is any affinity plan: don't reschedule
+		// use the first volume map to get the whole mono volume plan
+		for _, volumeMap := range affinity {
+			for _, volume := range h.usedVolumes {
+				if volume.device == volumeMap.GetDevice() {
+					volume.size += totalVolumeSize
+					volumePlan.Merge(h.getMonoPlan(requestBindings, totalRequestSize, volume))
+					break
+				}
+			}
+			break
+		}
+	}
+
+	// unlimited
+	if err := commonProcess(unlimitedRequests); err != nil {
+		return nil
+	}
+
+	if len(needRescheduleRequests) == 0 {
+		return volumePlan
+	}
+
+	volumePlans := h.getVolumePlans(needRescheduleRequests)
+	if len(volumePlans) == 0 {
+		return nil
+	}
+	volumePlan.Merge(volumePlans[0])
+	return volumePlan
+}
+
+// GetAffinityPlan .
+func GetAffinityPlan(resourceInfo *types.NodeResourceInfo, volumeRequest types.VolumeBindings, existing types.VolumePlan) types.VolumePlan {
+	h := newHost(resourceInfo, 1)
+	return h.getAffinityPlan(volumeRequest, existing)
+}
+
+// GetVolumePlans .
+func GetVolumePlans(resourceInfo *types.NodeResourceInfo, volumeRequest types.VolumeBindings, maxDeployCount int) []types.VolumePlan {
 	h := newHost(resourceInfo, maxDeployCount)
 	return h.getVolumePlans(volumeRequest)
 }

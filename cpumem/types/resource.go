@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/projecteru2/core-plugins/cpumem/utils"
 	pluginutils "github.com/projecteru2/core-plugins/utils"
 	coreutils "github.com/projecteru2/core/utils"
 )

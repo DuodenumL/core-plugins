@@ -45,7 +45,7 @@ func (v *Volume) doGetNodeCapacityInfo(node string, resourceInfo *types.NodeReso
 		Weight: 1,
 	}
 
-	volumePlans := schedule.GetVolumePlans(resourceInfo, opts.VolumesRequest, nil, v.config.Scheduler.MaxDeployCount)
+	volumePlans := schedule.GetVolumePlans(resourceInfo, opts.VolumesRequest, v.config.Scheduler.MaxDeployCount)
 	capacityInfo.Capacity = len(volumePlans)
 	capacityInfo.Usage = float64(resourceInfo.Usage.Volumes.Total()) / float64(resourceInfo.Capacity.Volumes.Total())
 	capacityInfo.Rate = float64(opts.VolumesRequest.TotalSize()) / float64(resourceInfo.Capacity.Volumes.Total())

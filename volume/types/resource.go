@@ -57,12 +57,10 @@ func (w *WorkloadResourceOpts) ParseFromString(str string) (err error) {
 		return err
 	}
 
-	w.VolumesRequest = VolumeBindings{}
-	if err = w.VolumesRequest.UnmarshalJSON([]byte(rawParams.String("volumes-request"))); err != nil {
+	if w.VolumesRequest, err = NewVolumeBindings(rawParams.OneOfStringSlice("volumes-request", "volume-request")); err != nil {
 		return err
 	}
-	w.VolumesLimit = VolumeBindings{}
-	if err = w.VolumesLimit.UnmarshalJSON([]byte(rawParams.String("volumes"))); err != nil {
+	if w.VolumesLimit, err = NewVolumeBindings(rawParams.OneOfStringSlice("volumes", "volume", "volume-limit")); err != nil {
 		return err
 	}
 	return nil
@@ -93,7 +91,7 @@ func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
 	for _, volume := range rawParams.StringSlice("volumes") {
 		parts := strings.Split(volume, ":")
 		if len(parts) != 2 {
-			return ErrInvalidVolume
+			return errors.Wrap(ErrInvalidVolume, "volume should have 2 parts")
 		}
 
 		capacity, err := pluginutils.ParseRAMInHuman(parts[1])
@@ -136,22 +134,22 @@ func (n *NodeResourceInfo) Validate() error {
 	}
 	if n.Usage == nil {
 		n.Usage = &NodeResourceArgs{Volumes: VolumeMap{}}
-		for device, size := range n.Capacity.Volumes {
-			n.Usage.Volumes[device] = size
+		for device := range n.Capacity.Volumes {
+			n.Usage.Volumes[device] = 0
 		}
 	}
 
 	for key, value := range n.Capacity.Volumes {
 		if value < 0 {
-			return ErrInvalidVolume
+			return errors.Wrap(ErrInvalidVolume, "volume size should not be less than 0")
 		}
 		if usage, ok := n.Usage.Volumes[key]; ok && (usage > value || usage < 0) {
-			return ErrInvalidVolume
+			return errors.Wrap(ErrInvalidVolume, "invalid size in usage")
 		}
 	}
 	for key := range n.Usage.Volumes {
 		if _, ok := n.Usage.Volumes[key]; !ok {
-			return ErrInvalidVolume
+			return errors.Wrap(ErrInvalidVolume, "invalid key in usage")
 		}
 	}
 	return nil

@@ -25,8 +25,31 @@ func (v *Volume) Alloc(ctx context.Context, node string, deployCount int, opts *
 	return v.doAlloc(resourceInfo, deployCount, opts)
 }
 
+func maxInt64(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func getVolumePlanLimit(bindings types.VolumeBindings, volumePlan types.VolumePlan) types.VolumePlan {
+	volumeBindingToVolumeMap := map[[3]string]types.VolumeMap{}
+	for binding, volumeMap := range volumePlan {
+		volumeBindingToVolumeMap[binding.GetMapKey()] = volumeMap
+	}
+
+	volumePlanLimit := types.VolumePlan{}
+
+	for _, binding := range bindings {
+		if volumeMap, ok := volumeBindingToVolumeMap[binding.GetMapKey()]; ok {
+			volumePlanLimit[binding] = types.VolumeMap{volumeMap.GetDevice(): maxInt64(binding.SizeInBytes, volumeMap.GetSize())}
+		}
+	}
+	return volumePlanLimit
+}
+
 func (v *Volume) doAlloc(resourceInfo *types.NodeResourceInfo, deployCount int, opts *types.WorkloadResourceOpts) ([]*types.EngineArgs, []*types.WorkloadResourceArgs, error) {
-	volumePlans := schedule.GetVolumePlans(resourceInfo, opts.VolumesRequest, nil, v.config.Scheduler.MaxDeployCount)
+	volumePlans := schedule.GetVolumePlans(resourceInfo, opts.VolumesRequest, v.config.Scheduler.MaxDeployCount)
 	if len(volumePlans) < deployCount {
 		return nil, nil, types.ErrInsufficientResource
 	}
@@ -42,22 +65,15 @@ func (v *Volume) doAlloc(resourceInfo *types.NodeResourceInfo, deployCount int, 
 
 	for _, volumePlan := range volumePlans {
 		engineArgs := &types.EngineArgs{}
-		for _, binding := range opts.VolumesLimit {
+		for _, binding := range opts.VolumesLimit.ApplyPlan(volumePlan) {
 			engineArgs.Volumes = append(engineArgs.Volumes, binding.ToString(true))
-		}
-
-		volumePlanLimit := types.VolumePlan{}
-		for binding, volumeMap := range volumePlan {
-			for device := range volumeMap {
-				volumePlanLimit[binding] = types.VolumeMap{device: volumeSizeLimitMap[binding]}
-			}
 		}
 
 		resourceArgs := &types.WorkloadResourceArgs{
 			VolumesRequest:    opts.VolumesRequest,
 			VolumesLimit:      opts.VolumesLimit,
 			VolumePlanRequest: volumePlan,
-			VolumePlanLimit:   volumePlanLimit,
+			VolumePlanLimit:   getVolumePlanLimit(opts.VolumesLimit, volumePlan),
 		}
 
 		resEngineArgs = append(resEngineArgs, engineArgs)
