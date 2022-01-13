@@ -9,16 +9,16 @@ import (
 	"github.com/projecteru2/core-plugins/volume/types"
 )
 
-// Alloc .
-func (v *Volume) Alloc(ctx context.Context, node string, deployCount int, opts *types.WorkloadResourceOpts) ([]*types.EngineArgs, []*types.WorkloadResourceArgs, error) {
+// GetDeployArgs .
+func (v *Volume) GetDeployArgs(ctx context.Context, node string, deployCount int, opts *types.WorkloadResourceOpts) ([]*types.EngineArgs, []*types.WorkloadResourceArgs, error) {
 	if err := opts.Validate(); err != nil {
-		logrus.Errorf("[Alloc] invalid resource opts %+v, err: %v", opts, err)
+		logrus.Errorf("[GetDeployArgs] invalid resource opts %+v, err: %v", opts, err)
 		return nil, nil, err
 	}
 
 	resourceInfo, err := v.doGetNodeResourceInfo(ctx, node)
 	if err != nil {
-		logrus.Errorf("[Alloc] failed to get resource info of node %v, err: %v", node, err)
+		logrus.Errorf("[GetDeployArgs] failed to get resource info of node %v, err: %v", node, err)
 		return nil, nil, err
 	}
 

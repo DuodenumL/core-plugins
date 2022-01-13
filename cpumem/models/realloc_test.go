@@ -12,7 +12,7 @@ import (
 	coretypes "github.com/projecteru2/core/types"
 )
 
-func TestRealloc(t *testing.T)  {
+func TestRealloc(t *testing.T) {
 	ctx := context.Background()
 
 	cpuMem := newTestCPUMem(t)
@@ -37,7 +37,7 @@ func TestRealloc(t *testing.T)  {
 	}
 
 	// non-existent node
-	_, _, _, err = cpuMem.Realloc(ctx, "xxx", originResourceArgs, &types.WorkloadResourceOpts{})
+	_, _, _, err = cpuMem.GetReallocArgs(ctx, "xxx", originResourceArgs, &types.WorkloadResourceOpts{})
 	assert.True(t, errors.Is(err, coretypes.ErrBadCount))
 
 	// invalid resource opts
@@ -49,7 +49,7 @@ func TestRealloc(t *testing.T)  {
 		MemRequest:  0,
 		MemLimit:    0,
 	}
-	_, _, _, err = cpuMem.Realloc(ctx, node, originResourceArgs, opts)
+	_, _, _, err = cpuMem.GetReallocArgs(ctx, node, originResourceArgs, opts)
 	assert.True(t, errors.Is(err, types.ErrInvalidCPU))
 
 	// insufficient cpu
@@ -61,7 +61,7 @@ func TestRealloc(t *testing.T)  {
 		MemRequest:  0,
 		MemLimit:    0,
 	}
-	_, _, _, err = cpuMem.Realloc(ctx, node, originResourceArgs, opts)
+	_, _, _, err = cpuMem.GetReallocArgs(ctx, node, originResourceArgs, opts)
 	assert.True(t, errors.Is(err, types.ErrInsufficientResource))
 
 	// normal case (with cpu-bind)
@@ -73,7 +73,7 @@ func TestRealloc(t *testing.T)  {
 		MemRequest:  0,
 		MemLimit:    0,
 	}
-	_, _, _, err = cpuMem.Realloc(ctx, node, originResourceArgs, opts)
+	_, _, _, err = cpuMem.GetReallocArgs(ctx, node, originResourceArgs, opts)
 	assert.Nil(t, err)
 
 	// normal case (without cpu-bind)
@@ -85,7 +85,7 @@ func TestRealloc(t *testing.T)  {
 		MemRequest:  0,
 		MemLimit:    0,
 	}
-	_, _, _, err = cpuMem.Realloc(ctx, node, originResourceArgs, opts)
+	_, _, _, err = cpuMem.GetReallocArgs(ctx, node, originResourceArgs, opts)
 	assert.Nil(t, err)
 
 	// insufficient mem
@@ -97,6 +97,6 @@ func TestRealloc(t *testing.T)  {
 		MemRequest:  units.PiB,
 		MemLimit:    units.PiB,
 	}
-	_, _, _, err = cpuMem.Realloc(ctx, node, originResourceArgs, opts)
+	_, _, _, err = cpuMem.GetReallocArgs(ctx, node, originResourceArgs, opts)
 	assert.True(t, errors.Is(err, types.ErrInsufficientMem))
 }

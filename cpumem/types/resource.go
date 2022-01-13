@@ -160,6 +160,10 @@ func (r *NodeResourceArgs) Add(r1 *NodeResourceArgs) {
 	for numaNodeID := range r1.NUMAMemory {
 		r.NUMAMemory[numaNodeID] += r1.NUMAMemory[numaNodeID]
 	}
+
+	if len(r1.NUMA) > 0 {
+		r.NUMA = r1.NUMA
+	}
 }
 
 // Sub .
@@ -177,6 +181,14 @@ func (r *NodeResourceArgs) Sub(r1 *NodeResourceArgs) {
 type NodeResourceInfo struct {
 	Capacity *NodeResourceArgs `json:"capacity"`
 	Usage    *NodeResourceArgs `json:"usage"`
+}
+
+// DeepCopy .
+func (n *NodeResourceInfo) DeepCopy() *NodeResourceInfo {
+	return &NodeResourceInfo{
+		Capacity: n.Capacity.DeepCopy(),
+		Usage:    n.Usage.DeepCopy(),
+	}
 }
 
 // RemoveEmptyCores .
@@ -423,4 +435,12 @@ type EngineArgs struct {
 	NUMANode string  `json:"numa_node"`
 	Memory   int64   `json:"memory"`
 	Remap    bool    `json:"remap"`
+}
+
+// WorkloadResourceArgsMap .
+type WorkloadResourceArgsMap map[string]*WorkloadResourceArgs
+
+// ParseFromString .
+func (w *WorkloadResourceArgsMap) ParseFromString(str string) error {
+	return json.Unmarshal([]byte(str), w)
 }

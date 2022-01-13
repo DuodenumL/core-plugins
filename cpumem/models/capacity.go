@@ -10,10 +10,10 @@ import (
 	"github.com/projecteru2/core-plugins/cpumem/types"
 )
 
-// GetNodesCapacity .
-func (c *CPUMem) GetNodesCapacity(ctx context.Context, nodes []string, opts *types.WorkloadResourceOpts) (map[string]*types.NodeCapacityInfo, int, error) {
+// GetNodesDeployCapacity .
+func (c *CPUMem) GetNodesDeployCapacity(ctx context.Context, nodes []string, opts *types.WorkloadResourceOpts) (map[string]*types.NodeCapacityInfo, int, error) {
 	if err := opts.Validate(); err != nil {
-		logrus.Errorf("[GetNodesCapacity] invalid resource opts %+v, err: %v", opts, err)
+		logrus.Errorf("[GetNodesDeployCapacity] invalid resource opts %+v, err: %v", opts, err)
 		return nil, 0, err
 	}
 
@@ -22,7 +22,7 @@ func (c *CPUMem) GetNodesCapacity(ctx context.Context, nodes []string, opts *typ
 	for _, node := range nodes {
 		resourceInfo, err := c.doGetNodeResourceInfo(ctx, node)
 		if err != nil {
-			logrus.Errorf("[GetNodesCapacity] failed to get resource info of node %v, err: %v", node, err)
+			logrus.Errorf("[GetNodesDeployCapacity] failed to get resource info of node %v, err: %v", node, err)
 			return nil, 0, err
 		}
 		capacityInfo := c.doGetNodeCapacityInfo(node, resourceInfo, opts)
@@ -43,8 +43,8 @@ func (c *CPUMem) doGetNodeCapacityInfo(node string, resourceInfo *types.NodeReso
 	availableResourceArgs := resourceInfo.GetAvailableResource()
 
 	capacityInfo := &types.NodeCapacityInfo{
-		Node:     node,
-		Weight:   1,
+		Node:   node,
+		Weight: 1,
 	}
 
 	// if cpu-bind is not required, then returns capacity by memory

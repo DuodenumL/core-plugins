@@ -8,11 +8,11 @@ import (
 	"github.com/projecteru2/core-plugins/cpumem/types"
 )
 
-// Remap .
-func (c *CPUMem) Remap(ctx context.Context, node string, workloadResourceMap map[string]*types.WorkloadResourceArgs) (map[string]*types.EngineArgs, error) {
+// GetRemapArgs .
+func (c *CPUMem) GetRemapArgs(ctx context.Context, node string, workloadResourceMap *types.WorkloadResourceArgsMap) (map[string]*types.EngineArgs, error) {
 	resourceInfo, err := c.doGetNodeResourceInfo(ctx, node)
 	if err != nil {
-		logrus.Errorf("[Remap] failed to get resource info of node %v, err: %v", node, err)
+		logrus.Errorf("[GetRemapArgs] failed to get resource info of node %v, err: %v", node, err)
 		return nil, err
 	}
 	availableNodeResource := resourceInfo.GetAvailableResource()
@@ -32,7 +32,7 @@ func (c *CPUMem) Remap(ctx context.Context, node string, workloadResourceMap map
 
 	engineArgsMap := map[string]*types.EngineArgs{}
 
-	for workloadID, workloadResourceArgs := range workloadResourceMap {
+	for workloadID, workloadResourceArgs := range *workloadResourceMap {
 		// only process workloads without cpu binding
 		if len(workloadResourceArgs.CPUMap) == 0 {
 			engineArgsMap[workloadID] = &types.EngineArgs{

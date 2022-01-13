@@ -13,7 +13,7 @@ import (
 func (v *Volume) Realloc(ctx context.Context, node string, originResourceArgs *types.WorkloadResourceArgs, resourceOpts *types.WorkloadResourceOpts) (*types.EngineArgs, *types.WorkloadResourceArgs, *types.WorkloadResourceArgs, error) {
 	resourceInfo, err := v.doGetNodeResourceInfo(ctx, node)
 	if err != nil {
-		logrus.Errorf("[Realloc] failed to get resource info of node %v, err: %v", node, err)
+		logrus.Errorf("[GetReallocArgs] failed to get resource info of node %v, err: %v", node, err)
 		return nil, nil, nil, err
 	}
 

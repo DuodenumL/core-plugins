@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	"github.com/projecteru2/core-plugins/Volume/cmd"
+	"github.com/projecteru2/core-plugins/command"
 	"github.com/projecteru2/core/version"
 )
 
@@ -31,10 +31,10 @@ func setupLog(l string) error {
 
 func main() {
 	app := &cli.App{
-		Name:    "Volume",
-		Usage:   "The resource plugin to volumes",
-		Version: version.VERSION,
-		Commands: cmd.Commands,
+		Name:     "Volume",
+		Usage:    "The resource plugin to volumes",
+		Version:  version.VERSION,
+		Commands: command.VolumeCommands,
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:        "debug",
@@ -44,9 +44,9 @@ func main() {
 				Destination: &debug,
 			},
 			&cli.StringFlag{
-				Name: "config",
-				Usage: "config file path",
-				Value: "./volume.yaml",
+				Name:    "config",
+				Usage:   "config file path",
+				Value:   "./volume.yaml",
 				EnvVars: []string{"VOLUME_CONFIG"},
 			},
 		},

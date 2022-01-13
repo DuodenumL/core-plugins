@@ -129,14 +129,14 @@ func TestGetNodesCapacityWithCPUBinding(t *testing.T) {
 	nodes := generateNodes(t, cpuMem, 2, 2, 4*units.GiB, 100)
 
 	// non-existent node
-	_, total, err := cpuMem.GetNodesCapacity(ctx, []string{"xxx"}, &types.WorkloadResourceOpts{
+	_, total, err := cpuMem.GetNodesDeployCapacity(ctx, []string{"xxx"}, &types.WorkloadResourceOpts{
 		CPUBind:    true,
 		CPURequest: 0.5,
 		MemRequest: 1,
 	})
 	assert.True(t, errors.Is(err, coretypes.ErrBadCount))
 
-	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err = cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    true,
 		CPURequest: 0.5,
 		MemRequest: 1,
@@ -144,7 +144,7 @@ func TestGetNodesCapacityWithCPUBinding(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, total >= 1)
 
-	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err = cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    true,
 		CPURequest: 2,
 		MemRequest: 1,
@@ -152,7 +152,7 @@ func TestGetNodesCapacityWithCPUBinding(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, total < 3)
 
-	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err = cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    true,
 		CPURequest: 3,
 		MemRequest: 1,
@@ -160,7 +160,7 @@ func TestGetNodesCapacityWithCPUBinding(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, total < 2)
 
-	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err = cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    true,
 		CPURequest: 1,
 		MemRequest: 1,
@@ -174,7 +174,7 @@ func TestComplexNodes(t *testing.T) {
 
 	cpuMem := newTestCPUMem(t)
 	nodes := generateComplexNodes(t, cpuMem)
-	_, total, err := cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err := cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    true,
 		CPURequest: 1.7,
 		MemRequest: 1,
@@ -188,7 +188,7 @@ func TestCPUNodesWithMemoryLimit(t *testing.T) {
 
 	cpuMem := newTestCPUMem(t)
 	nodes := generateNodes(t, cpuMem, 2, 2, 1024, 100)
-	_, total, err := cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err := cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    true,
 		CPURequest: 0.1,
 		MemRequest: 1024,
@@ -196,7 +196,7 @@ func TestCPUNodesWithMemoryLimit(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, total, 2)
 
-	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err = cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    true,
 		CPURequest: 0.1,
 		MemRequest: 1025,
@@ -212,7 +212,7 @@ func TestCPUNodesWithMaxShareLimit(t *testing.T) {
 	cpuMem.config.Scheduler.MaxShare = 2
 
 	nodes := generateNodes(t, cpuMem, 1, 6, 12*units.GiB, 100)
-	_, total, err := cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err := cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    true,
 		CPURequest: 1.7,
 		MemRequest: 1,
@@ -241,7 +241,7 @@ func BenchmarkGetNodesCapacity(b *testing.B) {
 	nodes := generateNodes(t, cpuMem, 10000, 24, 128*units.GiB, 100)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		_, _, err := cpuMem.GetNodesCapacity(context.Background(), nodes, &types.WorkloadResourceOpts{
+		_, _, err := cpuMem.GetNodesDeployCapacity(context.Background(), nodes, &types.WorkloadResourceOpts{
 			CPUBind:    true,
 			CPURequest: 1.3,
 			MemRequest: 1,
@@ -257,7 +257,7 @@ func TestGetNodesCapacityByMemory(t *testing.T) {
 	nodes := generateNodes(t, cpuMem, 2, 2, 4*units.GiB, 100)
 
 	// negative memory
-	_, _, err := cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, _, err := cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    false,
 		CPURequest: 0,
 		MemRequest: -1,
@@ -265,7 +265,7 @@ func TestGetNodesCapacityByMemory(t *testing.T) {
 	assert.True(t, errors.Is(err, types.ErrInvalidMemory))
 
 	// cpu + mem
-	_, total, err := cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err := cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    false,
 		CPURequest: 1,
 		MemRequest: 512 * units.MiB,
@@ -274,7 +274,7 @@ func TestGetNodesCapacityByMemory(t *testing.T) {
 	assert.Equal(t, total, 16)
 
 	// unlimited cpu
-	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err = cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    false,
 		CPURequest: 0,
 		MemRequest: 512 * units.MiB,
@@ -283,7 +283,7 @@ func TestGetNodesCapacityByMemory(t *testing.T) {
 	assert.Equal(t, total, 16)
 
 	// insufficient cpu
-	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err = cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    false,
 		CPURequest: 3,
 		MemRequest: 512 * units.MiB,
@@ -292,7 +292,7 @@ func TestGetNodesCapacityByMemory(t *testing.T) {
 	assert.Equal(t, total, 0)
 
 	// mem_request == 0
-	_, total, err = cpuMem.GetNodesCapacity(ctx, nodes, &types.WorkloadResourceOpts{
+	_, total, err = cpuMem.GetNodesDeployCapacity(ctx, nodes, &types.WorkloadResourceOpts{
 		CPUBind:    false,
 		CPURequest: 1,
 		MemRequest: 0,

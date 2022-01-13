@@ -114,6 +114,13 @@ func (n *NodeResourceArgs) DeepCopy() *NodeResourceArgs {
 	return &NodeResourceArgs{Volumes: n.Volumes.DeepCopy()}
 }
 
+// Add .
+func (n *NodeResourceArgs) Add(n1 *NodeResourceArgs) {
+	for k, v := range n1.Volumes {
+		n.Volumes[k] += v
+	}
+}
+
 // Sub .
 func (n *NodeResourceArgs) Sub(n1 *NodeResourceArgs) {
 	for k, v := range n1.Volumes {
@@ -175,4 +182,12 @@ type NodeCapacityInfo struct {
 type EngineArgs struct {
 	Volumes       []string `json:"volumes"`
 	VolumeChanged bool     `json:"volume_changed"` // indicates whether the realloc request includes new volumes
+}
+
+// WorkloadResourceArgsMap .
+type WorkloadResourceArgsMap map[string]*WorkloadResourceArgs
+
+// ParseFromString .
+func (w *WorkloadResourceArgsMap) ParseFromString(str string) error {
+	return json.Unmarshal([]byte(str), w)
 }

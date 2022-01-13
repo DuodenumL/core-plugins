@@ -7,6 +7,6 @@ import (
 )
 
 // Remap .
-func (v *Volume) Remap(ctx context.Context, node string, workloadResourceMap map[string]*types.WorkloadResourceArgs) (map[string]*types.EngineArgs, error) {
+func (v *Volume) Remap(ctx context.Context, node string, workloadResourceMap *types.WorkloadResourceArgsMap) (map[string]*types.EngineArgs, error) {
 	return nil, nil
 }

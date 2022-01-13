@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	"github.com/projecteru2/core-plugins/cpumem/cmd"
+	"github.com/projecteru2/core-plugins/command"
 	"github.com/projecteru2/core/version"
 )
 
@@ -31,10 +31,10 @@ func setupLog(l string) error {
 
 func main() {
 	app := &cli.App{
-		Name:    "CPU-Mem",
-		Usage:   "The resource plugin to manage cpu and memory",
-		Version: version.VERSION,
-		Commands: cmd.Commands,
+		Name:     "CPU-Mem",
+		Usage:    "The resource plugin to manage cpu and memory",
+		Version:  version.VERSION,
+		Commands: command.CPUMemCommands,
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:        "debug",
@@ -44,9 +44,9 @@ func main() {
 				Destination: &debug,
 			},
 			&cli.StringFlag{
-				Name: "config",
-				Usage: "config file path",
-				Value: "./cpumem.yaml",
+				Name:    "config",
+				Usage:   "config file path",
+				Value:   "./cpumem.yaml",
 				EnvVars: []string{"CPUMEM_CONFIG"},
 			},
 		},

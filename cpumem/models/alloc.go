@@ -9,16 +9,16 @@ import (
 	"github.com/projecteru2/core-plugins/cpumem/types"
 )
 
-// Alloc .
-func (c *CPUMem) Alloc(ctx context.Context, node string, deployCount int, opts *types.WorkloadResourceOpts) ([]*types.EngineArgs, []*types.WorkloadResourceArgs, error) {
+// GetDeployArgs .
+func (c *CPUMem) GetDeployArgs(ctx context.Context, node string, deployCount int, opts *types.WorkloadResourceOpts) ([]*types.EngineArgs, []*types.WorkloadResourceArgs, error) {
 	if err := opts.Validate(); err != nil {
-		logrus.Errorf("[Alloc] invalid resource opts %+v, err: %v", opts, err)
+		logrus.Errorf("[GetDeployArgs] invalid resource opts %+v, err: %v", opts, err)
 		return nil, nil, err
 	}
 
 	resourceInfo, err := c.doGetNodeResourceInfo(ctx, node)
 	if err != nil {
-		logrus.Errorf("[Alloc] failed to get resource info of node %v, err: %v", node, err)
+		logrus.Errorf("[GetDeployArgs] failed to get resource info of node %v, err: %v", node, err)
 		return nil, nil, err
 	}
 
@@ -35,16 +35,15 @@ func (c *CPUMem) doAllocByMemory(resourceInfo *types.NodeResourceInfo, deployCou
 	}
 
 	availableResourceArgs := resourceInfo.GetAvailableResource()
-	if opts.MemRequest > 0 && availableResourceArgs.Memory / opts.MemRequest < int64(deployCount) {
+	if opts.MemRequest > 0 && availableResourceArgs.Memory/opts.MemRequest < int64(deployCount) {
 		return nil, nil, types.ErrInsufficientMem
 	}
 
 	resEngineArgs := []*types.EngineArgs{}
 	resResourceArgs := []*types.WorkloadResourceArgs{}
 
-
 	engineArgs := &types.EngineArgs{
-		CPU: opts.CPULimit,
+		CPU:    opts.CPULimit,
 		Memory: opts.MemLimit,
 	}
 	resourceArgs := &types.WorkloadResourceArgs{
@@ -53,7 +52,6 @@ func (c *CPUMem) doAllocByMemory(resourceInfo *types.NodeResourceInfo, deployCou
 		MemoryRequest: opts.MemRequest,
 		MemoryLimit:   opts.MemLimit,
 	}
-
 
 	for len(resEngineArgs) < deployCount {
 		resEngineArgs = append(resEngineArgs, engineArgs)

@@ -9,15 +9,15 @@ import (
 	"github.com/projecteru2/core-plugins/cpumem/types"
 )
 
-// Realloc .
-func (c *CPUMem) Realloc(ctx context.Context, node string, originResourceArgs *types.WorkloadResourceArgs, resourceOpts *types.WorkloadResourceOpts) (*types.EngineArgs, *types.WorkloadResourceArgs, *types.WorkloadResourceArgs, error) {
+// GetReallocArgs .
+func (c *CPUMem) GetReallocArgs(ctx context.Context, node string, originResourceArgs *types.WorkloadResourceArgs, resourceOpts *types.WorkloadResourceOpts) (*types.EngineArgs, *types.WorkloadResourceArgs, *types.WorkloadResourceArgs, error) {
 	if resourceOpts.KeepCPUBind {
 		resourceOpts.CPUBind = len(originResourceArgs.CPUMap) > 0
 	}
 
 	resourceInfo, err := c.doGetNodeResourceInfo(ctx, node)
 	if err != nil {
-		logrus.Errorf("[Realloc] failed to get resource info of node %v, err: %v", node, err)
+		logrus.Errorf("[GetReallocArgs] failed to get resource info of node %v, err: %v", node, err)
 		return nil, nil, nil, err
 	}
 

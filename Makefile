@@ -16,7 +16,8 @@ deps:
 	env GO111MODULE=on go mod vendor
 
 binary:
-	CGO_ENABLED=0 go build -ldflags "$(GO_LDFLAGS)" -o bin/cpumem cpumem/cpumem.go
+	CGO_ENABLED=0 go build -ldflags "$(GO_LDFLAGS)" -gcflags=all=-G=3 -o bin/cpumem cpumem/cpumem.go && \
+	CGO_ENABLED=0 go build -ldflags "$(GO_LDFLAGS)" -gcflags=all=-G=3 -o bin/volume volume/volume.go
 
 build: deps binary
 

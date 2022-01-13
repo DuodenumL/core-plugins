@@ -10,10 +10,10 @@ import (
 	"github.com/projecteru2/core-plugins/volume/types"
 )
 
-// GetNodesCapacity .
-func (v *Volume) GetNodesCapacity(ctx context.Context, nodes []string, opts *types.WorkloadResourceOpts) (map[string]*types.NodeCapacityInfo, int, error) {
+// GetNodesDeployCapacity .
+func (v *Volume) GetNodesDeployCapacity(ctx context.Context, nodes []string, opts *types.WorkloadResourceOpts) (map[string]*types.NodeCapacityInfo, int, error) {
 	if err := opts.Validate(); err != nil {
-		logrus.Errorf("[GetNodesCapacity] invalid resource opts %+v, err: %v", opts, err)
+		logrus.Errorf("[GetNodesDeployCapacity] invalid resource opts %+v, err: %v", opts, err)
 		return nil, 0, err
 	}
 
@@ -22,7 +22,7 @@ func (v *Volume) GetNodesCapacity(ctx context.Context, nodes []string, opts *typ
 	for _, node := range nodes {
 		resourceInfo, err := v.doGetNodeResourceInfo(ctx, node)
 		if err != nil {
-			logrus.Errorf("[GetNodesCapacity] failed to get resource info of node %v, err: %v", node, err)
+			logrus.Errorf("[GetNodesDeployCapacity] failed to get resource info of node %v, err: %v", node, err)
 			return nil, 0, err
 		}
 		capacityInfo := v.doGetNodeCapacityInfo(node, resourceInfo, opts)

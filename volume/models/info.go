@@ -14,7 +14,7 @@ import (
 const NodeResourceInfoKey = "/resource/volume/%s"
 
 // GetNodeResourceInfo .
-func (v *Volume) GetNodeResourceInfo(ctx context.Context, node string, workloadResourceMap map[string]*types.WorkloadResourceArgs, fix bool) (*types.NodeResourceInfo, []string, error) {
+func (v *Volume) GetNodeResourceInfo(ctx context.Context, node string, workloadResourceMap *types.WorkloadResourceArgsMap, fix bool) (*types.NodeResourceInfo, []string, error) {
 	resourceInfo, err := v.doGetNodeResourceInfo(ctx, node)
 	if err != nil {
 		return nil, nil, err
@@ -24,7 +24,7 @@ func (v *Volume) GetNodeResourceInfo(ctx context.Context, node string, workloadR
 
 	totalVolumeMap := types.VolumeMap{}
 
-	for _, args := range workloadResourceMap {
+	for _, args := range *workloadResourceMap {
 		for _, volumeMap := range args.VolumePlanRequest {
 			totalVolumeMap.Add(volumeMap)
 		}
@@ -47,6 +47,86 @@ func (v *Volume) GetNodeResourceInfo(ctx context.Context, node string, workloadR
 	}
 
 	return resourceInfo, diffs, nil
+}
+
+// priority: node resource opts > node resource args > workload resource args list
+func (v *Volume) calculateNodeResourceArgs(origin *types.NodeResourceArgs, nodeResourceOpts *types.NodeResourceOpts, nodeResourceArgs *types.NodeResourceArgs, workloadResourceArgs []*types.WorkloadResourceArgs, delta bool, incr bool) (res *types.NodeResourceArgs) {
+	if origin == nil || !delta {
+		res = &types.NodeResourceArgs{}
+	} else {
+		res = origin.DeepCopy()
+	}
+
+	if nodeResourceOpts != nil {
+		nodeResourceArgs := &types.NodeResourceArgs{
+			Volumes: nodeResourceOpts.Volumes,
+		}
+
+		if incr {
+			res.Add(nodeResourceArgs)
+		} else {
+			res.Sub(nodeResourceArgs)
+		}
+		return res
+	}
+
+	if nodeResourceArgs != nil {
+		if incr {
+			res.Add(nodeResourceArgs)
+		} else {
+			res.Sub(nodeResourceArgs)
+		}
+		return res
+	}
+
+	for _, args := range workloadResourceArgs {
+		nodeResourceArgs := &types.NodeResourceArgs{
+			Volumes: map[string]int64{},
+		}
+		for _, volumeMap := range args.VolumePlanRequest {
+			nodeResourceArgs.Volumes.Add(volumeMap)
+		}
+		if incr {
+			res.Add(nodeResourceArgs)
+		} else {
+			res.Sub(nodeResourceArgs)
+		}
+	}
+	return res
+}
+
+// SetNodeResourceUsage .
+func (v *Volume) SetNodeResourceUsage(ctx context.Context, node string, nodeResourceArgs *types.NodeResourceArgs, workloadResourceArgs []*types.WorkloadResourceArgs, delta bool, incr bool) (before *types.NodeResourceArgs, after *types.NodeResourceArgs, err error) {
+	resourceInfo, err := v.doGetNodeResourceInfo(ctx, node)
+	if err != nil {
+		logrus.Errorf("[SetNodeResourceInfo] failed to get resource info of node %v, err: %v", node, err)
+		return nil, nil, err
+	}
+
+	before = resourceInfo.Usage.DeepCopy()
+	resourceInfo.Usage = v.calculateNodeResourceArgs(resourceInfo.Usage, nil, nodeResourceArgs, workloadResourceArgs, delta, incr)
+
+	if err := v.doSetNodeResourceInfo(ctx, node, resourceInfo); err != nil {
+		return nil, nil, err
+	}
+	return before, resourceInfo.Usage, nil
+}
+
+// SetNodeResourceCapacity .
+func (v *Volume) SetNodeResourceCapacity(ctx context.Context, node string, nodeResourceOpts *types.NodeResourceOpts, nodeResourceArgs *types.NodeResourceArgs, delta bool, incr bool) (before *types.NodeResourceArgs, after *types.NodeResourceArgs, err error) {
+	resourceInfo, err := v.doGetNodeResourceInfo(ctx, node)
+	if err != nil {
+		logrus.Errorf("[SetNodeResourceInfo] failed to get resource info of node %v, err: %v", node, err)
+		return nil, nil, err
+	}
+
+	before = resourceInfo.Capacity.DeepCopy()
+	resourceInfo.Capacity = v.calculateNodeResourceArgs(resourceInfo.Usage, nodeResourceOpts, nodeResourceArgs, nil, delta, incr)
+
+	if err := v.doSetNodeResourceInfo(ctx, node, resourceInfo); err != nil {
+		return nil, nil, err
+	}
+	return before, resourceInfo.Usage, nil
 }
 
 // SetNodeResourceInfo .
