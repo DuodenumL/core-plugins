@@ -52,7 +52,7 @@ func (v *Volume) GetNodeResourceInfo(ctx context.Context, node string, workloadR
 // priority: node resource opts > node resource args > workload resource args list
 func (v *Volume) calculateNodeResourceArgs(origin *types.NodeResourceArgs, nodeResourceOpts *types.NodeResourceOpts, nodeResourceArgs *types.NodeResourceArgs, workloadResourceArgs []*types.WorkloadResourceArgs, delta bool, incr bool) (res *types.NodeResourceArgs) {
 	if origin == nil || !delta {
-		res = &types.NodeResourceArgs{}
+		res = (&types.NodeResourceArgs{}).DeepCopy()
 	} else {
 		res = origin.DeepCopy()
 	}
@@ -67,6 +67,9 @@ func (v *Volume) calculateNodeResourceArgs(origin *types.NodeResourceArgs, nodeR
 		} else {
 			res.Sub(nodeResourceArgs)
 		}
+
+		//e.g. `--volume /data1:0` means to remove `/data1`
+		//res.RemoveEmpty(nodeResourceArgs)
 		return res
 	}
 
@@ -96,7 +99,7 @@ func (v *Volume) calculateNodeResourceArgs(origin *types.NodeResourceArgs, nodeR
 }
 
 // SetNodeResourceUsage .
-func (v *Volume) SetNodeResourceUsage(ctx context.Context, node string, nodeResourceArgs *types.NodeResourceArgs, workloadResourceArgs []*types.WorkloadResourceArgs, delta bool, incr bool) (before *types.NodeResourceArgs, after *types.NodeResourceArgs, err error) {
+func (v *Volume) SetNodeResourceUsage(ctx context.Context, node string, nodeResourceOpts *types.NodeResourceOpts, nodeResourceArgs *types.NodeResourceArgs, workloadResourceArgs []*types.WorkloadResourceArgs, delta bool, incr bool) (before *types.NodeResourceArgs, after *types.NodeResourceArgs, err error) {
 	resourceInfo, err := v.doGetNodeResourceInfo(ctx, node)
 	if err != nil {
 		logrus.Errorf("[SetNodeResourceInfo] failed to get resource info of node %v, err: %v", node, err)
@@ -104,7 +107,7 @@ func (v *Volume) SetNodeResourceUsage(ctx context.Context, node string, nodeReso
 	}
 
 	before = resourceInfo.Usage.DeepCopy()
-	resourceInfo.Usage = v.calculateNodeResourceArgs(resourceInfo.Usage, nil, nodeResourceArgs, workloadResourceArgs, delta, incr)
+	resourceInfo.Usage = v.calculateNodeResourceArgs(resourceInfo.Usage, nodeResourceOpts, nodeResourceArgs, workloadResourceArgs, delta, incr)
 
 	if err := v.doSetNodeResourceInfo(ctx, node, resourceInfo); err != nil {
 		return nil, nil, err
@@ -121,12 +124,15 @@ func (v *Volume) SetNodeResourceCapacity(ctx context.Context, node string, nodeR
 	}
 
 	before = resourceInfo.Capacity.DeepCopy()
+	if !delta {
+		nodeResourceOpts.SkipEmpty(resourceInfo.Capacity)
+	}
 	resourceInfo.Capacity = v.calculateNodeResourceArgs(resourceInfo.Usage, nodeResourceOpts, nodeResourceArgs, nil, delta, incr)
 
 	if err := v.doSetNodeResourceInfo(ctx, node, resourceInfo); err != nil {
 		return nil, nil, err
 	}
-	return before, resourceInfo.Usage, nil
+	return before, resourceInfo.Capacity, nil
 }
 
 // SetNodeResourceInfo .

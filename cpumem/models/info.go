@@ -68,10 +68,10 @@ func (c *CPUMem) GetNodeResourceInfo(ctx context.Context, node string, workloadR
 	return resourceInfo, diffs, nil
 }
 
-// priority: node resource opts > node resource args > workload resource args list
+// calculateNodeResourceArgs priority: node resource opts > node resource args > workload resource args list
 func (c *CPUMem) calculateNodeResourceArgs(origin *types.NodeResourceArgs, nodeResourceOpts *types.NodeResourceOpts, nodeResourceArgs *types.NodeResourceArgs, workloadResourceArgs []*types.WorkloadResourceArgs, delta bool, incr bool) (res *types.NodeResourceArgs) {
 	if origin == nil || !delta {
-		res = &types.NodeResourceArgs{}
+		res = (&types.NodeResourceArgs{}).DeepCopy()
 	} else {
 		res = origin.DeepCopy()
 	}
@@ -119,7 +119,7 @@ func (c *CPUMem) calculateNodeResourceArgs(origin *types.NodeResourceArgs, nodeR
 }
 
 // SetNodeResourceUsage .
-func (c *CPUMem) SetNodeResourceUsage(ctx context.Context, node string, nodeResourceArgs *types.NodeResourceArgs, workloadResourceArgs []*types.WorkloadResourceArgs, delta bool, incr bool) (before *types.NodeResourceArgs, after *types.NodeResourceArgs, err error) {
+func (c *CPUMem) SetNodeResourceUsage(ctx context.Context, node string, nodeResourceOpts *types.NodeResourceOpts, nodeResourceArgs *types.NodeResourceArgs, workloadResourceArgs []*types.WorkloadResourceArgs, delta bool, incr bool) (before *types.NodeResourceArgs, after *types.NodeResourceArgs, err error) {
 	resourceInfo, err := c.doGetNodeResourceInfo(ctx, node)
 	if err != nil {
 		logrus.Errorf("[SetNodeResourceInfo] failed to get resource info of node %v, err: %v", node, err)
@@ -127,7 +127,7 @@ func (c *CPUMem) SetNodeResourceUsage(ctx context.Context, node string, nodeReso
 	}
 
 	before = resourceInfo.Usage.DeepCopy()
-	resourceInfo.Usage = c.calculateNodeResourceArgs(resourceInfo.Usage, nil, nodeResourceArgs, workloadResourceArgs, delta, incr)
+	resourceInfo.Usage = c.calculateNodeResourceArgs(resourceInfo.Usage, nodeResourceOpts, nodeResourceArgs, workloadResourceArgs, delta, incr)
 
 	if err := c.doSetNodeResourceInfo(ctx, node, resourceInfo); err != nil {
 		return nil, nil, err
@@ -144,12 +144,16 @@ func (c *CPUMem) SetNodeResourceCapacity(ctx context.Context, node string, nodeR
 	}
 
 	before = resourceInfo.Capacity.DeepCopy()
+	if !delta {
+		nodeResourceOpts.SkipEmpty(resourceInfo.Capacity)
+	}
+
 	resourceInfo.Capacity = c.calculateNodeResourceArgs(resourceInfo.Usage, nodeResourceOpts, nodeResourceArgs, nil, delta, incr)
 
 	if err := c.doSetNodeResourceInfo(ctx, node, resourceInfo); err != nil {
 		return nil, nil, err
 	}
-	return before, resourceInfo.Usage, nil
+	return before, resourceInfo.Capacity, nil
 }
 
 // SetNodeResourceInfo .

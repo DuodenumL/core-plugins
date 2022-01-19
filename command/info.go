@@ -148,14 +148,14 @@ func generateSetNodeResourceUsageCommand(pluginFactory func(*cli.Context) (inter
 				logrus.Errorf("[doSetNodeResourceUsage] plugin %v failed to parse node resource opts, err: %v", pluginName, err)
 				return err
 			}
-			out, err = call(plugin, "SetNodeResourceUsage", c.Context, node, nodeResourceOpts, nil, nil, delta, incr)
+			out, err = call(plugin, "SetNodeResourceUsage", c.Context, node, nodeResourceOpts, reflect.Zero(reflect.TypeOf(nodeResourceArgs)), reflect.Zero(makeSliceOfType(workloadResourceArgs, 0).Type()), delta, incr)
 
 		} else if c.IsSet("node-resource-args") {
 			if err = json.Unmarshal([]byte(c.String("node-resource-args")), nodeResourceArgs); err != nil {
 				logrus.Errorf("[doSetNodeResourceUsage] plugin %v failed to parse node resource args, err: %v", pluginName, err)
 				return err
 			}
-			out, err = call(plugin, "SetNodeResourceUsage", c.Context, node, nil, nodeResourceArgs, nil, delta, incr)
+			out, err = call(plugin, "SetNodeResourceUsage", c.Context, node, makeTypedNil(nodeResourceOpts), nodeResourceArgs, makeTypedNil(makeSliceOfType(workloadResourceArgs, 0).Interface()), delta, incr)
 
 		} else if c.IsSet("workload-resource-args") {
 			workloadResourceArgsSlice := makeSliceOfType(workloadResourceArgs, len(c.StringSlice("workload-resource-args")))
@@ -165,9 +165,9 @@ func generateSetNodeResourceUsageCommand(pluginFactory func(*cli.Context) (inter
 					logrus.Errorf("[doSetNodeResourceUsage] invalid workload resource args, err: %v", err)
 					return err
 				}
-				reflect.Append(workloadResourceArgsSlice, reflect.ValueOf(resourceArgs))
+				workloadResourceArgsSlice = reflect.Append(workloadResourceArgsSlice, reflect.ValueOf(resourceArgs))
 			}
-			out, err = call(plugin, "SetNodeResourceUsage", c.Context, node, nil, nil, workloadResourceArgsSlice.Interface(), delta, incr)
+			out, err = call(plugin, "SetNodeResourceUsage", c.Context, node, makeTypedNil(nodeResourceOpts), makeTypedNil(nodeResourceArgs), workloadResourceArgsSlice.Interface(), delta, incr)
 
 		} else {
 			logrus.Errorf("[doSetNodeResourceUsage] plugin %v receives invalid parameters", pluginName)
@@ -209,7 +209,7 @@ func generateSetNodeResourceUsageCommand(pluginFactory func(*cli.Context) (inter
 				Name:  "node-resource-args",
 				Usage: "node resource args",
 			},
-			&cli.StringFlag{
+			&cli.StringSliceFlag{
 				Name:  "workload-resource-args",
 				Usage: "workload resource args",
 			},
@@ -244,14 +244,14 @@ func generateSetNodeResourceCapacityCommand(pluginFactory func(*cli.Context) (in
 				logrus.Errorf("[doSetNodeResourceCapacity] plugin %v failed to parse node resource opts, err: %v", pluginName, err)
 				return err
 			}
-			out, err = call(plugin, "doSetNodeResourceCapacity", c.Context, node, nodeResourceOpts, nil, delta, incr)
+			out, err = call(plugin, "SetNodeResourceCapacity", c.Context, node, nodeResourceOpts, makeTypedNil(nodeResourceArgs), delta, incr)
 
 		} else if c.IsSet("node-resource-args") {
 			if err = json.Unmarshal([]byte(c.String("node-resource-args")), nodeResourceArgs); err != nil {
 				logrus.Errorf("[doSetNodeResourceCapacity] plugin %v failed to parse node resource args, err: %v", pluginName, err)
 				return err
 			}
-			out, err = call(plugin, "SetNodeResourceCapacity", c.Context, node, nil, nodeResourceArgs, delta, incr)
+			out, err = call(plugin, "SetNodeResourceCapacity", c.Context, node, makeTypedNil(nodeResourceOpts), nodeResourceArgs, delta, incr)
 
 		} else {
 			logrus.Errorf("[doSetNodeResourceCapacity] plugin %v receives invalid parameters", pluginName)

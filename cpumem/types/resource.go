@@ -351,12 +351,13 @@ type NodeResourceOpts struct {
 	Memory     int64      `json:"memory"`
 	NUMA       NUMA       `json:"numa"`
 	NUMAMemory NUMAMemory `json:"numa_memory"`
-	Delta      bool       `json:"delta"`
+
+	rawParams pluginutils.RawParams
 }
 
 func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
-	rawParams := pluginutils.RawParams{}
-	if err = json.Unmarshal([]byte(str), &rawParams); err != nil {
+	n.rawParams = pluginutils.RawParams{}
+	if err = json.Unmarshal([]byte(str), &n.rawParams); err != nil {
 		return err
 	}
 
@@ -364,8 +365,8 @@ func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
 		n.CPUMap = CPUMap{}
 	}
 
-	if cpu := rawParams.Int64("cpu"); cpu > 0 {
-		share := rawParams.Int64("share")
+	if cpu := n.rawParams.Int64("cpu"); cpu > 0 {
+		share := n.rawParams.Int64("share")
 		if share == 0 {
 			share = 100
 		}
@@ -374,7 +375,7 @@ func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
 			n.CPUMap[fmt.Sprintf("%v", i)] = int(share)
 		}
 	} else {
-		cpuList := rawParams.String("cpu")
+		cpuList := n.rawParams.String("cpu")
 		if cpuList != "" {
 			cpuMapList := strings.Split(cpuList, ",")
 			for _, cpus := range cpuMapList {
@@ -392,20 +393,20 @@ func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
 		}
 	}
 
-	if n.Memory, err = pluginutils.ParseRAMInHuman(rawParams.String("memory")); err != nil {
+	if n.Memory, err = pluginutils.ParseRAMInHuman(n.rawParams.String("memory")); err != nil {
 		return err
 	}
 	n.NUMA = NUMA{}
 	n.NUMAMemory = NUMAMemory{}
 
-	for index, cpuList := range rawParams.StringSlice("numa-cpu") {
+	for index, cpuList := range n.rawParams.StringSlice("numa-cpu") {
 		nodeID := fmt.Sprintf("%d", index)
 		for _, cpuID := range strings.Split(cpuList, ",") {
 			n.NUMA[cpuID] = nodeID
 		}
 	}
 
-	for index, memoryStr := range rawParams.StringSlice("numa-memory") {
+	for index, memoryStr := range n.rawParams.StringSlice("numa-memory") {
 		nodeID := fmt.Sprintf("%d", index)
 		mem, err := pluginutils.ParseRAMInHuman(memoryStr)
 		if err != nil {
@@ -414,9 +415,26 @@ func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
 		n.NUMAMemory[nodeID] = mem
 	}
 
-	n.Delta = rawParams.Bool("delta")
-
 	return nil
+}
+
+// SkipEmpty used for setting node resource capacity in absolute mode
+func (n *NodeResourceOpts) SkipEmpty(resourceCapacity *NodeResourceArgs) {
+	if n == nil {
+		return
+	}
+	if !n.rawParams.IsSet("cpu") {
+		n.CPUMap = resourceCapacity.CPUMap
+	}
+	if !n.rawParams.IsSet("memory") {
+		n.Memory = resourceCapacity.Memory
+	}
+	if !n.rawParams.IsSet("numa-cpu") {
+		n.NUMA = resourceCapacity.NUMA
+	}
+	if !n.rawParams.IsSet("numa-memory") {
+		n.NUMAMemory = resourceCapacity.NUMAMemory
+	}
 }
 
 // NodeCapacityInfo .

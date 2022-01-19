@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/docker/go-units"
-	"github.com/urfave/cli/v2"
 )
 
 // ParseRAMInHuman returns int value in bytes of a human readable string
@@ -29,8 +28,4 @@ func ParseRAMInHuman(ram string) (int64, error) {
 		return 0, err
 	}
 	return ramInBytes * flag, nil
-}
-
-type Fuck struct {
-	F func(ctx *cli.Context) error
 }

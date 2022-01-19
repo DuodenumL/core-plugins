@@ -78,17 +78,19 @@ type WorkloadResourceArgs struct {
 // NodeResourceOpts .
 type NodeResourceOpts struct {
 	Volumes VolumeMap `json:"volumes"`
+
+	rawParams pluginutils.RawParams
 }
 
 // ParseFromString .
 func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
-	rawParams := pluginutils.RawParams{}
-	if err = json.Unmarshal([]byte(str), &rawParams); err != nil {
+	n.rawParams = pluginutils.RawParams{}
+	if err = json.Unmarshal([]byte(str), &n.rawParams); err != nil {
 		return err
 	}
 
 	volumes := VolumeMap{}
-	for _, volume := range rawParams.StringSlice("volumes") {
+	for _, volume := range n.rawParams.StringSlice("volumes") {
 		parts := strings.Split(volume, ":")
 		if len(parts) != 2 {
 			return errors.Wrap(ErrInvalidVolume, "volume should have 2 parts")
@@ -104,6 +106,16 @@ func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
 	return
 }
 
+// SkipEmpty used for setting node resource capacity in absolute mode
+func (n *NodeResourceOpts) SkipEmpty(resourceCapacity *NodeResourceArgs) {
+	if n == nil {
+		return
+	}
+	if !n.rawParams.IsSet("volumes") {
+		n.Volumes = resourceCapacity.Volumes
+	}
+}
+
 // NodeResourceArgs .
 type NodeResourceArgs struct {
 	Volumes VolumeMap `json:"volumes"`
@@ -112,6 +124,15 @@ type NodeResourceArgs struct {
 // DeepCopy .
 func (n *NodeResourceArgs) DeepCopy() *NodeResourceArgs {
 	return &NodeResourceArgs{Volumes: n.Volumes.DeepCopy()}
+}
+
+// RemoveEmpty .
+func (n *NodeResourceArgs) RemoveEmpty(n1 *NodeResourceArgs) {
+	for device, size := range n1.Volumes {
+		if size == 0 {
+			delete(n.Volumes, device)
+		}
+	}
 }
 
 // Add .

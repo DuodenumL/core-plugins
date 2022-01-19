@@ -17,7 +17,11 @@ func call(plugin interface{}, method string, args ...interface{}) ([]interface{}
 	}
 	in := []reflect.Value{}
 	for _, arg := range args {
-		in = append(in, reflect.ValueOf(arg))
+		if zero, ok := arg.(reflect.Value); ok {
+			in = append(in, zero)
+		} else {
+			in = append(in, reflect.ValueOf(arg))
+		}
 	}
 	out := funcV.Call(in)
 	res := []interface{}{}
@@ -45,9 +49,13 @@ func newPtrOfType(v interface{}) interface{} {
 }
 
 func makeSliceOfType(v interface{}, cap int) reflect.Value {
-	return reflect.MakeSlice(reflect.TypeOf(v), 0, cap)
+	return reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(v)), 0, cap)
 }
 
 func makeMapOfType(v interface{}) reflect.Value {
 	return reflect.MakeMap(reflect.TypeOf(v))
+}
+
+func makeTypedNil(v interface{}) reflect.Value {
+	return reflect.Zero(reflect.TypeOf(v))
 }
