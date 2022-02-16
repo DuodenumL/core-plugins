@@ -22,6 +22,12 @@ func (v *Volume) Realloc(ctx context.Context, node string, originResourceArgs *t
 		VolumesLimit:      types.MergeVolumeBindings(resourceOpts.VolumesLimit, originResourceArgs.VolumesLimit),
 		VolumePlanRequest: nil,
 		VolumePlanLimit:   nil,
+		StorageRequest:    resourceOpts.StorageRequest,
+		StorageLimit:      resourceOpts.StorageLimit,
+	}
+
+	if finalWorkloadResourceArgs.StorageRequest > resourceInfo.Capacity.Storage-resourceInfo.Usage.Storage {
+		return nil, nil, nil, types.ErrInsufficientResource
 	}
 
 	volumePlan := schedule.GetAffinityPlan(resourceInfo, resourceOpts.VolumesRequest, originResourceArgs.VolumePlanRequest)
@@ -37,7 +43,7 @@ func (v *Volume) Realloc(ctx context.Context, node string, originResourceArgs *t
 		originBindingSet[binding.GetMapKey()] = struct{}{}
 	}
 
-	engineArgs := &types.EngineArgs{}
+	engineArgs := &types.EngineArgs{Storage: finalWorkloadResourceArgs.StorageLimit}
 	for _, binding := range resourceOpts.VolumesLimit.ApplyPlan(volumePlan) {
 		engineArgs.Volumes = append(engineArgs.Volumes, binding.ToString(true))
 		if _, ok := originBindingSet[binding.GetMapKey()]; !ok {
@@ -58,10 +64,13 @@ func getDeltaWorkloadResourceArgs(originWorkloadResourceArgs, finalWorkloadResou
 		deltaVolumeMap.Sub(volumeMap)
 	}
 
-	return &types.WorkloadResourceArgs{VolumePlanRequest: types.VolumePlan{&types.VolumeBinding{
-		Source:      "fake-source",
-		Destination: "fake-destination",
-		Flags:       "fake-flags",
-		SizeInBytes: 0,
-	}: deltaVolumeMap}}
+	return &types.WorkloadResourceArgs{
+		VolumePlanRequest: types.VolumePlan{&types.VolumeBinding{
+			Source:      "fake-source",
+			Destination: "fake-destination",
+			Flags:       "fake-flags",
+			SizeInBytes: 0,
+		}: deltaVolumeMap},
+		StorageRequest: finalWorkloadResourceArgs.StorageRequest - originWorkloadResourceArgs.StorageRequest,
+	}
 }

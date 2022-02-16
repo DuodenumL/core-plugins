@@ -23,11 +23,17 @@ func (v *Volume) GetNodeResourceInfo(ctx context.Context, node string, workloadR
 	diffs := []string{}
 
 	totalVolumeMap := types.VolumeMap{}
+	totalStorageUsage := int64(0)
 
 	for _, args := range *workloadResourceMap {
 		for _, volumeMap := range args.VolumePlanRequest {
 			totalVolumeMap.Add(volumeMap)
 		}
+		totalStorageUsage += args.StorageRequest
+	}
+
+	if resourceInfo.Usage.Storage != totalStorageUsage {
+		diffs = append(diffs, fmt.Sprintf("node.Storage != sum(workload.Storage): %v != %v", resourceInfo.Usage.Storage, totalStorageUsage))
 	}
 
 	for volume, size := range totalVolumeMap {
@@ -39,6 +45,7 @@ func (v *Volume) GetNodeResourceInfo(ctx context.Context, node string, workloadR
 	if fix {
 		resourceInfo.Usage = &types.NodeResourceArgs{
 			Volumes: totalVolumeMap,
+			Storage: totalStorageUsage,
 		}
 		if err = v.doSetNodeResourceInfo(ctx, node, resourceInfo); err != nil {
 			logrus.Warnf("[GetNodeResourceInfo] failed to fix node resource, err: %v", err)
@@ -60,6 +67,7 @@ func (v *Volume) calculateNodeResourceArgs(origin *types.NodeResourceArgs, nodeR
 	if nodeResourceOpts != nil {
 		nodeResourceArgs := &types.NodeResourceArgs{
 			Volumes: nodeResourceOpts.Volumes,
+			Storage: nodeResourceOpts.Storage + nodeResourceOpts.Volumes.Total(),
 		}
 
 		if incr {
@@ -69,7 +77,7 @@ func (v *Volume) calculateNodeResourceArgs(origin *types.NodeResourceArgs, nodeR
 		}
 
 		//e.g. `--volume /data1:0` means to remove `/data1`
-		//res.RemoveEmpty(nodeResourceArgs)
+		res.RemoveEmpty(nodeResourceArgs)
 		return res
 	}
 
@@ -85,6 +93,7 @@ func (v *Volume) calculateNodeResourceArgs(origin *types.NodeResourceArgs, nodeR
 	for _, args := range workloadResourceArgs {
 		nodeResourceArgs := &types.NodeResourceArgs{
 			Volumes: map[string]int64{},
+			Storage: args.StorageRequest,
 		}
 		for _, volumeMap := range args.VolumePlanRequest {
 			nodeResourceArgs.Volumes.Add(volumeMap)

@@ -17,8 +17,7 @@ deps:
 
 binary:
 	CGO_ENABLED=0 go build -ldflags "$(GO_LDFLAGS)" -gcflags=all=-G=3 -o bin/cpumem cpumem/cpumem.go && \
-	CGO_ENABLED=0 go build -ldflags "$(GO_LDFLAGS)" -gcflags=all=-G=3 -o bin/volume volume/volume.go && \
-	CGO_ENABLED=0 go build -ldflags "$(GO_LDFLAGS)" -gcflags=all=-G=3 -o bin/storage storage/storage.go
+	CGO_ENABLED=0 go build -ldflags "$(GO_LDFLAGS)" -gcflags=all=-G=3 -o bin/volume volume/volume.go
 
 build: deps binary
 

@@ -49,6 +49,16 @@ func (v *Volume) doGetNodeCapacityInfo(node string, resourceInfo *types.NodeReso
 	capacityInfo.Capacity = len(volumePlans)
 	capacityInfo.Usage = float64(resourceInfo.Usage.Volumes.Total()) / float64(resourceInfo.Capacity.Volumes.Total())
 	capacityInfo.Rate = float64(opts.VolumesRequest.TotalSize()) / float64(resourceInfo.Capacity.Volumes.Total())
+	if opts.StorageRequest > 0 {
+		storageCapacity := int((resourceInfo.Capacity.Storage - resourceInfo.Usage.Storage) / opts.StorageRequest)
+		if storageCapacity < capacityInfo.Capacity {
+			capacityInfo.Capacity = storageCapacity
+		}
+	}
+	if resourceInfo.Capacity.Storage > 0 {
+		capacityInfo.Usage = capacityInfo.Usage/2 + float64(resourceInfo.Usage.Storage)/float64(resourceInfo.Capacity.Storage)/2
+		capacityInfo.Rate = capacityInfo.Rate/2 + float64(opts.StorageRequest)/float64(resourceInfo.Capacity.Storage)/2
+	}
 
 	return capacityInfo
 }

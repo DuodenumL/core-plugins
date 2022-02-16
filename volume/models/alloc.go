@@ -50,6 +50,13 @@ func getVolumePlanLimit(bindings types.VolumeBindings, volumePlan types.VolumePl
 
 func (v *Volume) doAlloc(resourceInfo *types.NodeResourceInfo, deployCount int, opts *types.WorkloadResourceOpts) ([]*types.EngineArgs, []*types.WorkloadResourceArgs, error) {
 	volumePlans := schedule.GetVolumePlans(resourceInfo, opts.VolumesRequest, v.config.Scheduler.MaxDeployCount)
+	if opts.StorageRequest > 0 {
+		storageCapacity := int((resourceInfo.Capacity.Storage - resourceInfo.Usage.Storage) / opts.StorageRequest)
+		if storageCapacity < len(volumePlans) {
+			volumePlans = volumePlans[:storageCapacity]
+		}
+	}
+
 	if len(volumePlans) < deployCount {
 		return nil, nil, types.ErrInsufficientResource
 	}
@@ -64,7 +71,7 @@ func (v *Volume) doAlloc(resourceInfo *types.NodeResourceInfo, deployCount int, 
 	}
 
 	for _, volumePlan := range volumePlans {
-		engineArgs := &types.EngineArgs{}
+		engineArgs := &types.EngineArgs{Storage: opts.StorageLimit}
 		for _, binding := range opts.VolumesLimit.ApplyPlan(volumePlan) {
 			engineArgs.Volumes = append(engineArgs.Volumes, binding.ToString(true))
 		}
@@ -74,6 +81,8 @@ func (v *Volume) doAlloc(resourceInfo *types.NodeResourceInfo, deployCount int, 
 			VolumesLimit:      opts.VolumesLimit,
 			VolumePlanRequest: volumePlan,
 			VolumePlanLimit:   getVolumePlanLimit(opts.VolumesLimit, volumePlan),
+			StorageRequest:    opts.StorageRequest,
+			StorageLimit:      opts.StorageLimit,
 		}
 
 		resEngineArgs = append(resEngineArgs, engineArgs)

@@ -14,6 +14,9 @@ import (
 type WorkloadResourceOpts struct {
 	VolumesRequest VolumeBindings `json:"volumes_request"`
 	VolumesLimit   VolumeBindings `json:"volumes_limit"`
+
+	StorageRequest int64 `json:"storage-request"`
+	StorageLimit   int64 `json:"storage-limit"`
 }
 
 // Validate .
@@ -47,6 +50,16 @@ func (w *WorkloadResourceOpts) Validate() error {
 			limit.SizeInBytes = request.SizeInBytes
 		}
 	}
+
+	if w.StorageLimit < 0 || w.StorageRequest < 0 {
+		return errors.Wrap(ErrInvalidStorage, "storage limit or request less than 0")
+	}
+	if w.StorageLimit > 0 && w.StorageRequest == 0 {
+		w.StorageRequest = w.StorageLimit
+	}
+	if w.StorageLimit > 0 && w.StorageRequest > 0 && w.StorageRequest > w.StorageLimit {
+		w.StorageLimit = w.StorageRequest // soft limit storage size
+	}
 	return nil
 }
 
@@ -63,6 +76,21 @@ func (w *WorkloadResourceOpts) ParseFromString(str string) (err error) {
 	if w.VolumesLimit, err = NewVolumeBindings(rawParams.OneOfStringSlice("volumes", "volume", "volume-limit")); err != nil {
 		return err
 	}
+
+	if w.StorageRequest, err = pluginutils.ParseRAMInHuman(rawParams.String("storage-request")); err != nil {
+		return err
+	}
+	if w.StorageLimit, err = pluginutils.ParseRAMInHuman(rawParams.String("storage-limit")); err != nil {
+		return err
+	}
+	if rawParams.IsSet("storage") {
+		if storage, err := pluginutils.ParseRAMInHuman(rawParams.String("storage")); err != nil {
+			return err
+		} else {
+			w.StorageLimit = storage
+			w.StorageRequest = storage
+		}
+	}
 	return nil
 }
 
@@ -73,11 +101,15 @@ type WorkloadResourceArgs struct {
 
 	VolumePlanRequest VolumePlan `json:"volume_plan_request"`
 	VolumePlanLimit   VolumePlan `json:"volume_plan_limit"`
+
+	StorageRequest int64 `json:"storage-request"`
+	StorageLimit   int64 `json:"storage-limit"`
 }
 
 // NodeResourceOpts .
 type NodeResourceOpts struct {
 	Volumes VolumeMap `json:"volumes"`
+	Storage int64     `json:"storage"`
 
 	rawParams pluginutils.RawParams
 }
@@ -103,7 +135,11 @@ func (n *NodeResourceOpts) ParseFromString(str string) (err error) {
 		volumes[parts[0]] = capacity
 	}
 	n.Volumes = volumes
-	return
+
+	if n.Storage, err = pluginutils.ParseRAMInHuman(n.rawParams.String("storage")); err != nil {
+		return err
+	}
+	return nil
 }
 
 // SkipEmpty used for setting node resource capacity in absolute mode
@@ -114,22 +150,27 @@ func (n *NodeResourceOpts) SkipEmpty(resourceCapacity *NodeResourceArgs) {
 	if !n.rawParams.IsSet("volumes") {
 		n.Volumes = resourceCapacity.Volumes
 	}
+	if !n.rawParams.IsSet("storage") {
+		n.Storage = resourceCapacity.Storage
+	}
 }
 
 // NodeResourceArgs .
 type NodeResourceArgs struct {
 	Volumes VolumeMap `json:"volumes"`
+	Storage int64     `json:"storage"`
 }
 
 // DeepCopy .
 func (n *NodeResourceArgs) DeepCopy() *NodeResourceArgs {
-	return &NodeResourceArgs{Volumes: n.Volumes.DeepCopy()}
+	return &NodeResourceArgs{Volumes: n.Volumes.DeepCopy(), Storage: n.Storage}
 }
 
 // RemoveEmpty .
 func (n *NodeResourceArgs) RemoveEmpty(n1 *NodeResourceArgs) {
 	for device, size := range n1.Volumes {
 		if size == 0 {
+			n.Storage -= n.Volumes[device]
 			delete(n.Volumes, device)
 		}
 	}
@@ -140,6 +181,7 @@ func (n *NodeResourceArgs) Add(n1 *NodeResourceArgs) {
 	for k, v := range n1.Volumes {
 		n.Volumes[k] += v
 	}
+	n.Storage += n1.Storage
 }
 
 // Sub .
@@ -147,6 +189,7 @@ func (n *NodeResourceArgs) Sub(n1 *NodeResourceArgs) {
 	for k, v := range n1.Volumes {
 		n.Volumes[k] -= v
 	}
+	n.Storage -= n1.Storage
 }
 
 // NodeResourceInfo .
@@ -161,7 +204,7 @@ func (n *NodeResourceInfo) Validate() error {
 		return ErrInvalidCapacity
 	}
 	if n.Usage == nil {
-		n.Usage = &NodeResourceArgs{Volumes: VolumeMap{}}
+		n.Usage = &NodeResourceArgs{Volumes: VolumeMap{}, Storage: 0}
 		for device := range n.Capacity.Volumes {
 			n.Usage.Volumes[device] = 0
 		}
@@ -179,6 +222,13 @@ func (n *NodeResourceInfo) Validate() error {
 		if _, ok := n.Usage.Volumes[key]; !ok {
 			return errors.Wrap(ErrInvalidVolume, "invalid key in usage")
 		}
+	}
+
+	if n.Capacity.Storage < 0 {
+		return errors.Wrap(ErrInvalidStorage, "storage capacity can't be negative")
+	}
+	if n.Usage.Storage < 0 {
+		return errors.Wrap(ErrInvalidStorage, "storage usage can't be negative")
 	}
 	return nil
 }
@@ -203,6 +253,7 @@ type NodeCapacityInfo struct {
 type EngineArgs struct {
 	Volumes       []string `json:"volumes"`
 	VolumeChanged bool     `json:"volume_changed"` // indicates whether the realloc request includes new volumes
+	Storage       int64    `json:"storage"`
 }
 
 // WorkloadResourceArgsMap .

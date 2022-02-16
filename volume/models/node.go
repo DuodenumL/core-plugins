@@ -25,6 +25,7 @@ func (v *Volume) AddNode(ctx context.Context, node string, resourceOpts *types.N
 	resourceInfo := &types.NodeResourceInfo{
 		Capacity: &types.NodeResourceArgs{
 			Volumes: resourceOpts.Volumes,
+			Storage: resourceOpts.Storage + resourceOpts.Volumes.Total(),
 		},
 		Usage: nil,
 	}
